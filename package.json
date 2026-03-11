@@ -1,0 +1,26 @@
+{
+  "name": "kinward",
+  "version": "0.1.0",
+  "description": "Your Family's AI Guardian — local-first AI platform",
+  "private": true,
+  "scripts": {
+    "dev": "node server/index.js",
+    "client": "cd client && npm run dev",
+    "reset": "node scripts/reset.js",
+    "reset:hard": "node scripts/reset.js --wipe-models",
+    "setup": "npm install && cd client && npm install && cd .. && node scripts/init-db.js",
+    "test:timed": "node scripts/timed-run.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "better-sqlite3": "^11.0.0",
+    "cors": "^2.8.5",
+    "bcrypt": "^5.1.1",
+    "uuid": "^9.0.0",
+    "mdns-js": "^1.0.3",
+    "ws": "^8.16.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.0"
+  }
+}
