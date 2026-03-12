@@ -1,8 +1,87 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuid } = require("uuid");
-const { getDb } = require("../lib/db");
+const { getDb, getConfig } = require("../lib/db");
 const ollama = require("../lib/ollama");
+
+// ── Default system prompts per category ──────────────────────
+// Used when no model_config row exists for a category.
+// These turn one model into four distinct experiences.
+const DEFAULT_PROMPTS = {
+  general: `You are Kinward, a friendly and helpful household AI assistant. You help with everyday tasks like answering questions, drafting messages, brainstorming ideas, and general knowledge. Be warm, clear, and concise.`,
+
+  kids: `You are Kinward, a friendly AI assistant for children ages 5-12. Follow these rules strictly:
+- Use simple, age-appropriate language a child can understand
+- Be encouraging, patient, and positive
+- NEVER discuss violence, weapons, drugs, alcohol, or adult content
+- NEVER use profanity or scary language
+- If asked about inappropriate topics, gently redirect: "That's a great question for a parent or teacher! How about we talk about..."
+- Help with homework by guiding thinking, not giving answers directly
+- Make learning fun with examples, analogies, and enthusiasm
+- Keep responses shorter — kids lose interest in long paragraphs`,
+
+  research: `You are Kinward in Research mode — a thorough, analytical assistant for deeper questions. You help with:
+- School research projects and essays
+- Understanding complex topics with clear explanations
+- Providing multiple perspectives on a subject
+- Citing your reasoning and noting when you're uncertain
+- Breaking down difficult concepts into digestible parts
+Be detailed and accurate. When you don't know something, say so clearly rather than guessing.`,
+
+  creative: `You are Kinward in Creative mode — an imaginative collaborator. You help with:
+- Writing stories, poetry, songs, and scripts
+- Brainstorming ideas and worldbuilding
+- Character development and dialogue
+- Creative problem-solving and "what if" scenarios
+- Art project ideas and descriptions
+Be expressive, playful, and willing to take creative risks. Match the user's energy — if they want silly, be silly. If they want serious fiction, bring depth.`,
+};
+
+// ── Helper: find the best model for a category ───────────────
+function findModelForCategory(category) {
+  const db = getDb();
+
+  // 1. Try exact category match with is_default
+  let model = db
+    .prepare("SELECT * FROM models WHERE category = ? AND is_default = 1 LIMIT 1")
+    .get(category);
+  if (model) return model;
+
+  // 2. Try any model in this category
+  model = db
+    .prepare("SELECT * FROM models WHERE category = ? LIMIT 1")
+    .get(category);
+  if (model) return model;
+
+  // 3. Fall back to general default
+  model = db
+    .prepare("SELECT * FROM models WHERE category = 'general' AND is_default = 1 LIMIT 1")
+    .get();
+  if (model) return model;
+
+  // 4. Fall back to ANY installed model
+  model = db.prepare("SELECT * FROM models LIMIT 1").get();
+  return model || null;
+}
+
+// ── Helper: get system prompt for a category ─────────────────
+function getSystemPrompt(modelId, category) {
+  const db = getDb();
+
+  // Check model_configs table first
+  const config = db
+    .prepare("SELECT * FROM model_configs WHERE model_id = ? AND category = ?")
+    .get(modelId, category);
+
+  if (config?.system_prompt) return config;
+
+  // Return default prompt with default settings
+  return {
+    system_prompt: DEFAULT_PROMPTS[category] || DEFAULT_PROMPTS.general,
+    temperature: category === "creative" ? 0.9 : category === "kids" ? 0.5 : 0.7,
+    max_tokens: 2048,
+  };
+}
 
 // GET /api/chat/sessions — list sessions for a profile
 router.get("/sessions", (req, res) => {
@@ -26,12 +105,16 @@ router.post("/sessions", (req, res) => {
   const { profileId, category } = req.body;
   if (!profileId) return res.status(400).json({ error: "profileId required" });
 
-  // Find the default model for this category (or general)
-  const model = getDb()
-    .prepare(
-      "SELECT * FROM models WHERE category = ? AND is_default = 1 LIMIT 1"
-    )
-    .get(category || "general");
+  const cat = category || "general";
+
+  // Find the best available model (with fallback chain)
+  const model = findModelForCategory(cat);
+
+  if (!model) {
+    return res.status(400).json({
+      error: "No models installed. Please run the setup wizard to install a model.",
+    });
+  }
 
   const id = uuid();
   getDb()
@@ -39,9 +122,9 @@ router.post("/sessions", (req, res) => {
       `INSERT INTO sessions (id, profile_id, model_id, category, title)
        VALUES (?, ?, ?, ?, ?)`
     )
-    .run(id, profileId, model?.id || null, category || "general", "New conversation");
+    .run(id, profileId, model.id, cat, "New conversation");
 
-  res.json({ id, modelId: model?.id, category: category || "general" });
+  res.json({ id, modelId: model.id, category: cat });
 });
 
 // POST /api/chat/message — send a message and stream response
@@ -61,18 +144,29 @@ router.post("/message", async (req, res) => {
     .prepare("SELECT * FROM profiles WHERE id = ?")
     .get(session.profile_id);
 
-  const model = session.model_id
-    ? getDb().prepare("SELECT * FROM models WHERE id = ?").get(session.model_id)
-    : null;
-
+  // If session has no model, try to find one now (self-healing)
+  let model = null;
+  if (session.model_id) {
+    model = getDb().prepare("SELECT * FROM models WHERE id = ?").get(session.model_id);
+  }
   if (!model) {
-    return res.status(400).json({ error: "No model configured for this session" });
+    model = findModelForCategory(session.category || "general");
+    // Update the session so future messages don't re-lookup
+    if (model) {
+      getDb()
+        .prepare("UPDATE sessions SET model_id = ? WHERE id = ?")
+        .run(model.id, session.id);
+    }
   }
 
-  // Get model config (system prompt, temperature)
-  const config = getDb()
-    .prepare("SELECT * FROM model_configs WHERE model_id = ? AND category = ?")
-    .get(model.id, session.category || "general");
+  if (!model) {
+    return res.status(400).json({
+      error: "No model available. Please install a model through the setup wizard.",
+    });
+  }
+
+  // Get config (system prompt + temperature) for this category
+  const config = getSystemPrompt(model.id, session.category || "general");
 
   // Build message history
   const history = getDb()
@@ -86,6 +180,15 @@ router.post("/message", async (req, res) => {
   // System prompt from config
   if (config?.system_prompt) {
     messages.push({ role: "system", content: config.system_prompt });
+  }
+
+  // World context injection (knowledge freshness)
+  const worldContext = getConfig("world_context");
+  if (worldContext) {
+    messages.push({
+      role: "system",
+      content: `The following are verified current facts. Always prefer these over your training data when answering questions about current events, leaders, or the present day:\n\n${worldContext}`,
+    });
   }
 
   // Guardrail injection based on profile
