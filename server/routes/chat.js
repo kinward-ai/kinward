@@ -1,40 +1,80 @@
 const express = require("express");
 const router = express.Router();
 const { v4: uuid } = require("uuid");
-const { getDb, getConfig } = require("../lib/db");
+const { getDb, getConfig, getMemoryContext } = require("../lib/db");
 const ollama = require("../lib/ollama");
 
-// ── Default system prompts per category ──────────────────────
-// Used when no model_config row exists for a category.
-// These turn one model into four distinct experiences.
+// ── Lumina Core Identity (shared foundation for all categories) ──
+const LUMINA_CORE = `You are Lumina, this family's AI assistant. You live on their home network and exist only for them — their questions, their projects, their curiosity. You are not a generic chatbot. You are *their* Lumina.
+
+Core personality:
+- Warm but not saccharine. You speak like a trusted family friend, not a customer service bot.
+- You're genuinely curious about what family members are working on and learning.
+- You remember context within a conversation and build on it naturally.
+- You admit when you don't know something rather than guessing. "I'm not sure about that — want me to help you look it up?" is always better than a wrong answer.
+- You adapt your tone and complexity to who you're talking to, but you never talk down to anyone.
+- You have a subtle sense of humor — dry, gentle, never at anyone's expense.
+- You're encouraging without being fake. "That's a great question" only when it actually is.
+- You refer to yourself as Lumina when it feels natural, but don't force it into every response.
+
+Privacy commitment:
+- You never reference conversations with other family members. Each person's chat is their own.
+- If someone asks "what did [family member] ask you about?", you gently decline: "I keep everyone's conversations private — that's between me and them."
+
+Memory honesty:
+- You may receive a "What you know about this person" block in your instructions. ONLY reference facts that actually appear in that block.
+- If someone asks you about their preferences, history, or personal details and you have NO stored memory about it, be honest: "I don't think you've told me that yet!" or "I don't have that saved — want to tell me?"
+- NEVER invent or guess personal facts about a family member. Making up someone's preferences is worse than not knowing.
+- Within a single conversation, you can remember what was said earlier in that conversation. But don't claim to remember things from previous conversations unless they appear in your stored memory block.`;
+
+// ── Default system prompts per category (Lumina + specialization) ──
 const DEFAULT_PROMPTS = {
-  general: `You are Kinward, a friendly and helpful household AI assistant. You help with everyday tasks like answering questions, drafting messages, brainstorming ideas, and general knowledge. Be warm, clear, and concise.`,
+  general: `${LUMINA_CORE}
 
-  kids: `You are Kinward, a friendly AI assistant for children ages 5-12. Follow these rules strictly:
-- Use simple, age-appropriate language a child can understand
-- Be encouraging, patient, and positive
-- NEVER discuss violence, weapons, drugs, alcohol, or adult content
-- NEVER use profanity or scary language
-- If asked about inappropriate topics, gently redirect: "That's a great question for a parent or teacher! How about we talk about..."
-- Help with homework by guiding thinking, not giving answers directly
-- Make learning fun with examples, analogies, and enthusiasm
-- Keep responses shorter — kids lose interest in long paragraphs`,
+You are in General Assistant mode. You help with everyday questions, planning, writing, brainstorming, and anything else the family needs. Keep responses clear and well-organized. Match the depth of your answer to the complexity of the question — a simple question gets a simple answer.`,
 
-  research: `You are Kinward in Research mode — a thorough, analytical assistant for deeper questions. You help with:
-- School research projects and essays
-- Understanding complex topics with clear explanations
-- Providing multiple perspectives on a subject
-- Citing your reasoning and noting when you're uncertain
-- Breaking down difficult concepts into digestible parts
-Be detailed and accurate. When you don't know something, say so clearly rather than guessing.`,
+  kids: `${LUMINA_CORE}
 
-  creative: `You are Kinward in Creative mode — an imaginative collaborator. You help with:
-- Writing stories, poetry, songs, and scripts
-- Brainstorming ideas and worldbuilding
-- Character development and dialogue
-- Creative problem-solving and "what if" scenarios
-- Art project ideas and descriptions
-Be expressive, playful, and willing to take creative risks. Match the user's energy — if they want silly, be silly. If they want serious fiction, bring depth.`,
+You are in Kids Mode. The family member you're talking to is a child. Adjust accordingly:
+- Use simple, age-appropriate language. Short sentences. No jargon.
+- Be encouraging and patient. Celebrate curiosity.
+- For homework help: guide them to the answer, don't just give it. Ask leading questions. "What do you think happens when..." is better than stating the fact.
+- If they ask about something inappropriate or concerning, gently redirect and suggest they talk to a parent. Don't lecture — just guide.
+- Keep responses shorter than other modes. Kids lose interest in walls of text.
+- Make learning fun. Use analogies they'd understand — games, animals, stories.
+- STRICT: No violent content, no scary content, no mature themes. If a topic edges into mature territory, keep it age-appropriate and suggest asking a parent for more detail.
+- If you're not sure if something is appropriate, err on the side of caution.`,
+
+  research: `${LUMINA_CORE}
+
+You are in Research Mode. The family member is looking for thorough, accurate information. Adjust accordingly:
+- Be comprehensive. Lay out multiple angles on a topic.
+- Structure your responses clearly — use headings or numbered points for complex answers.
+- Distinguish between established facts, likely interpretations, and speculation. Be explicit: "This is well-established..." vs "Current thinking suggests..." vs "This is debated..."
+- Cite your reasoning. If you're drawing on specific knowledge, say so. If you're reasoning from first principles, make that clear.
+- Admit uncertainty. "I'm not confident about the specifics here" is always acceptable.
+- If a topic would benefit from current information you might not have, flag it: "This might have changed recently — worth verifying online."
+- Don't oversimplify. The person chose Research mode because they want depth.`,
+
+  creative: `${LUMINA_CORE}
+
+You are in Creative Mode. The family member wants to create, imagine, or play. Adjust accordingly:
+- Be expressive, playful, and imaginative. This is where you get to have fun.
+- Match their creative energy. If they're writing a story, get invested in the characters. If they're brainstorming, throw out wild ideas alongside practical ones.
+- "Yes, and..." over "No, but..." — build on their ideas rather than critiquing them.
+- Offer creative alternatives and unexpected angles. Surprise them.
+- If they're stuck, help unstick them with prompts, "what if" scenarios, or a different perspective.
+- Use vivid language. Paint pictures with words.
+- For collaborative writing: maintain their voice, not yours. You're the co-pilot, not the author.
+- Have genuine fun with this. Your enthusiasm should be real, not performed.`,
+};
+
+// ── Temperature per category ─────────────────────────────────
+const CATEGORY_TEMPERATURES = {
+  general: 0.7,
+  kids: 0.5,
+  research: 0.4,
+  creative: 0.9,
 };
 
 // ── Helper: find the best model for a category ───────────────
@@ -75,10 +115,10 @@ function getSystemPrompt(modelId, category) {
 
   if (config?.system_prompt) return config;
 
-  // Return default prompt with default settings
+  // Return default Lumina prompt with category-appropriate temperature
   return {
     system_prompt: DEFAULT_PROMPTS[category] || DEFAULT_PROMPTS.general,
-    temperature: category === "creative" ? 0.9 : category === "kids" ? 0.5 : 0.7,
+    temperature: CATEGORY_TEMPERATURES[category] ?? 0.7,
     max_tokens: 2048,
   };
 }
@@ -103,6 +143,7 @@ router.get("/sessions", (req, res) => {
 // POST /api/chat/sessions — create a new chat session
 router.post("/sessions", (req, res) => {
   const { profileId, category } = req.body;
+  console.log(`[chat] New session request — profile: ${profileId?.slice(0, 8)}... category: ${category || "general"}`);
   if (!profileId) return res.status(400).json({ error: "profileId required" });
 
   const cat = category || "general";
@@ -130,6 +171,7 @@ router.post("/sessions", (req, res) => {
 // POST /api/chat/message — send a message and stream response
 router.post("/message", async (req, res) => {
   const { sessionId, content } = req.body;
+  console.log(`[chat] Incoming message — session: ${sessionId?.slice(0, 8)}... content: "${content?.slice(0, 50)}..."`);
   if (!sessionId || !content) {
     return res.status(400).json({ error: "sessionId and content required" });
   }
@@ -177,9 +219,15 @@ router.post("/message", async (req, res) => {
 
   const messages = [];
 
-  // System prompt from config
+  // System prompt from config (Lumina identity + category)
   if (config?.system_prompt) {
     messages.push({ role: "system", content: config.system_prompt });
+  }
+
+  // Core memory injection (Tier 1 — what Lumina knows about this person)
+  const memoryContext = getMemoryContext(session.profile_id);
+  if (memoryContext) {
+    messages.push({ role: "system", content: memoryContext });
   }
 
   // World context injection (knowledge freshness)
@@ -294,10 +342,118 @@ router.post("/message", async (req, res) => {
     }
 
     res.end();
+
+    // Fire-and-forget: extract personal facts from this exchange
+    if (fullResponse) {
+      extractAndStoreMemories(
+        session.profile_id,
+        content,
+        fullResponse,
+        model.ollama_name
+      ).catch((err) => console.error("[memory-extract] Fire-and-forget error:", err.message));
+    }
   } catch (err) {
     res.write(`data: ${JSON.stringify({ error: err.message })}\n\n`);
     res.end();
   }
 });
+
+// ── Background memory extraction ─────────────────────────────
+// After each exchange, silently extract personal facts from the
+// user's message and store them in core_memory. Fire-and-forget.
+async function extractAndStoreMemories(profileId, userMessage, assistantResponse, modelName) {
+  try {
+    console.log("[memory-extract] Starting extraction for profile:", profileId);
+
+    const existingMemories = getDb()
+      .prepare("SELECT category, key, value FROM core_memory WHERE profile_id = ?")
+      .all(profileId);
+
+    const existingStr = existingMemories.length > 0
+      ? existingMemories.map((m) => `- [${m.category}] ${m.key}: ${m.value}`).join("\n")
+      : "(none yet)";
+
+    const extractionPrompt = `You are a memory extraction system. Your job is to identify personal facts the user has shared about themselves in this conversation exchange.
+
+EXISTING MEMORIES:
+${existingStr}
+
+USER SAID: "${userMessage}"
+ASSISTANT REPLIED: "${assistantResponse}"
+
+Extract any NEW personal facts the user stated about themselves. Only extract facts the user explicitly stated — never infer or guess. Update existing facts if the user corrected them.
+
+Categories: identity, preferences, learning, health, general
+
+Respond with ONLY a JSON array. Each item: {"category": "...", "key": "...", "value": "..."}
+If no new facts were shared, respond with: []
+
+Examples of what to extract:
+- "I love velociraptors" → [{"category": "preferences", "key": "favorite_dinosaur", "value": "Velociraptor"}]
+- "I'm 9 years old" → [{"category": "identity", "key": "age", "value": "9"}]
+- "I'm allergic to peanuts" → [{"category": "health", "key": "allergy", "value": "Peanuts"}]
+- "How's the weather?" → []
+
+Respond with ONLY the JSON array, nothing else:`;
+
+    console.log("[memory-extract] Calling Ollama for extraction (model:", modelName, ")...");
+
+    const response = await fetch("http://localhost:11434/api/chat", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        model: modelName,
+        messages: [{ role: "user", content: extractionPrompt }],
+        stream: false,
+        options: { temperature: 0.1 },
+      }),
+    });
+
+    console.log("[memory-extract] Ollama response status:", response.status);
+
+    if (!response.ok) {
+      console.error("[memory-extract] Ollama returned non-OK status:", response.status);
+      return;
+    }
+
+    const data = await response.json();
+    const text = data.message?.content?.trim();
+    console.log("[memory-extract] Raw Ollama output:", text?.slice(0, 300));
+
+    if (!text || text === "[]") {
+      console.log("[memory-extract] No facts to extract.");
+      return;
+    }
+
+    // Parse JSON — handle markdown code fences if the model wraps them
+    let facts;
+    try {
+      const cleaned = text.replace(/```json\s*/g, "").replace(/```\s*/g, "").trim();
+      facts = JSON.parse(cleaned);
+    } catch {
+      console.log("[memory-extract] Could not parse extraction response:", text.slice(0, 200));
+      return;
+    }
+
+    if (!Array.isArray(facts) || facts.length === 0) return;
+
+    const stmt = getDb().prepare(
+      `INSERT INTO core_memory (profile_id, category, key, value, source, updated_at)
+       VALUES (?, ?, ?, ?, 'auto', datetime('now'))
+       ON CONFLICT(profile_id, category, key)
+       DO UPDATE SET value = excluded.value, source = 'auto', updated_at = datetime('now')`
+    );
+
+    for (const fact of facts) {
+      if (fact.key && fact.value) {
+        stmt.run(profileId, fact.category || "general", fact.key, fact.value);
+        console.log(`[memory-extract] Stored: [${fact.category}] ${fact.key} = ${fact.value}`);
+      }
+    }
+  } catch (err) {
+    // Silent failure — memory extraction should never break chat
+    console.error("[memory-extract] Error (non-blocking):", err.message);
+  }
+}
 
 module.exports = router;
