@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import KinwardWizard from "./KinwardWizard";
 import KinwardChat from "./KinwardChat";
+import KinwardSettings from "./KinwardSettings";
 
 /* ─────────────────────────────────────────────
    KINWARD APP ROUTER
@@ -23,6 +24,7 @@ export default function KinwardApp() {
   const [status, setStatus] = useState(null);    // null = loading, object = loaded
   const [error, setError] = useState(null);
   const [view, setView] = useState("loading");   // loading | wizard | chat | settings
+  const [settingsUser, setSettingsUser] = useState(null); // authenticated admin for settings
 
   // ── Check system status on boot ──
   useEffect(() => {
@@ -50,12 +52,14 @@ export default function KinwardApp() {
   }
 
   // ── Admin requests settings (from chat sidebar) ──
-  function handleOpenSettings() {
+  function handleOpenSettings(user) {
+    setSettingsUser(user);
     setView("settings");
   }
 
   // ── Return to chat from settings ──
   function handleCloseSettings() {
+    setSettingsUser(null);
     setView("chat");
   }
 
@@ -96,48 +100,12 @@ export default function KinwardApp() {
   // ── Settings (admin-only, re-entered from chat) ──
   if (view === "settings") {
     return (
-      <SettingsShell onBack={handleCloseSettings} />
+      <KinwardSettings user={settingsUser} onBack={handleCloseSettings} />
     );
   }
 
   // ── Chat (default post-setup experience) ──
   return <KinwardChat onOpenSettings={handleOpenSettings} />;
-}
-
-
-/* ─────────────────────────────────────────────
-   SETTINGS SHELL
-   Placeholder for admin settings panel.
-   Will eventually house: profile management,
-   model management, environment mode toggle,
-   activity dashboard, re-run wizard sections.
-   ───────────────────────────────────────────── */
-function SettingsShell({ onBack }) {
-  return (
-    <div style={styles.settingsRoot}>
-      <div style={styles.settingsHeader}>
-        <button style={styles.backBtn} onClick={onBack}>← Back to Chat</button>
-        <h2 style={styles.settingsTitle}>KINWARD SETTINGS</h2>
-      </div>
-      <div style={styles.settingsBody}>
-        <SettingsCard title="Family Profiles" desc="Add, edit, or remove family members" />
-        <SettingsCard title="AI Models" desc="Install, remove, or update models" />
-        <SettingsCard title="Privacy Mode" desc="Switch between Open, Secured, and Lockdown" />
-        <SettingsCard title="Activity Dashboard" desc="View usage patterns (governance, not surveillance)" />
-        <SettingsCard title="Network" desc="LAN access, remote access, device pairing" />
-      </div>
-    </div>
-  );
-}
-
-function SettingsCard({ title, desc }) {
-  return (
-    <div style={styles.card}>
-      <div style={styles.cardTitle}>{title}</div>
-      <div style={styles.cardDesc}>{desc}</div>
-      <div style={styles.cardBadge}>Coming soon</div>
-    </div>
-  );
 }
 
 

@@ -9,6 +9,7 @@ function getDb() {
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL");
     db.pragma("foreign_keys = ON");
+    db.pragma("busy_timeout = 5000"); // wait up to 5s on concurrent writes
   }
   return db;
 }
@@ -112,6 +113,38 @@ function initSchema() {
       ON core_memory(profile_id);
     CREATE INDEX IF NOT EXISTS idx_core_memory_profile_category
       ON core_memory(profile_id, category);
+
+    -- AI Identity: The AI's self — name, personality traits, chosen by the family
+    CREATE TABLE IF NOT EXISTS ai_identity (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL,
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Documents: uploaded files attached to chat sessions
+    CREATE TABLE IF NOT EXISTS documents (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      session_id TEXT REFERENCES sessions(id),
+      filename TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      total_chunks INTEGER DEFAULT 0,
+      total_tokens INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- Document chunks: text segments for injection into prompts
+    CREATE TABLE IF NOT EXISTS document_chunks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      document_id TEXT NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+      chunk_index INTEGER NOT NULL,
+      content TEXT NOT NULL,
+      token_estimate INTEGER DEFAULT 0,
+      UNIQUE(document_id, chunk_index)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_doc_chunks_doc
+      ON document_chunks(document_id);
   `);
 
   console.log("[db] Schema initialized");
@@ -137,6 +170,34 @@ function initSchema() {
     ).run(JSON.stringify(defaultWorldContext));
 
     console.log("[db] World context seeded with defaults");
+  }
+
+  // Seed default AI identity if not present (idempotent)
+  const existingIdentity = db.prepare("SELECT value FROM ai_identity WHERE key = 'name'").get();
+  if (!existingIdentity) {
+    const defaults = [
+      ["name", "Lumina"],
+      ["tagline", "Your family's AI"],
+      ["chosen_by", "default"],
+      ["personality_style", "warm"],
+    ];
+    const stmt = db.prepare(
+      "INSERT OR IGNORE INTO ai_identity (key, value, updated_at) VALUES (?, ?, datetime('now'))"
+    );
+    for (const [k, v] of defaults) {
+      stmt.run(k, v);
+    }
+    console.log("[db] AI identity seeded with defaults (Lumina)");
+  }
+
+  // Migration: clear stale baked-in system prompts from model_configs
+  // System prompts are now always built dynamically from ai_identity + category
+  const stalePrompts = db.prepare(
+    "SELECT COUNT(*) as count FROM model_configs WHERE system_prompt IS NOT NULL"
+  ).get();
+  if (stalePrompts.count > 0) {
+    db.prepare("UPDATE model_configs SET system_prompt = NULL").run();
+    console.log(`[db] Cleared ${stalePrompts.count} stale system prompts from model_configs (now dynamic)`);
   }
 }
 
@@ -164,6 +225,27 @@ function close() {
     db.close();
     db = null;
   }
+}
+
+// --- AI Identity helpers ---
+
+function getAIIdentity() {
+  const rows = getDb().prepare("SELECT key, value FROM ai_identity").all();
+  const identity = {};
+  for (const row of rows) {
+    identity[row.key] = row.value;
+  }
+  // Always return at least a name
+  if (!identity.name) identity.name = "Lumina";
+  return identity;
+}
+
+function setAIIdentity(key, value) {
+  getDb()
+    .prepare(
+      "INSERT INTO ai_identity (key, value, updated_at) VALUES (?, ?, datetime('now')) ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at"
+    )
+    .run(key, value);
 }
 
 function getMemoryContext(profileId) {
@@ -194,4 +276,170 @@ function getMemoryContext(profileId) {
   return context;
 }
 
-module.exports = { getDb, initSchema, getConfig, setConfig, isSetupComplete, close, getMemoryContext, DB_PATH };
+// --- Document helpers ---
+
+function estimateTokens(text) {
+  // ~4 characters per token for English text (conservative)
+  return Math.ceil(text.length / 4);
+}
+
+function chunkText(text, targetTokens = 1500) {
+  const targetChars = targetTokens * 4;
+  const chunks = [];
+
+  // Prefer splitting on paragraph breaks
+  const paragraphs = text.split(/\n\s*\n/);
+  let current = "";
+
+  for (const para of paragraphs) {
+    if (current.length + para.length > targetChars && current.length > 0) {
+      chunks.push(current.trim());
+      current = para;
+    } else {
+      current += (current ? "\n\n" : "") + para;
+    }
+  }
+  if (current.trim()) chunks.push(current.trim());
+
+  return chunks;
+}
+
+function storeDocument(id, profileId, sessionId, filename, fileType, textContent) {
+  const d = getDb();
+  const chunks = chunkText(textContent);
+  const totalTokens = estimateTokens(textContent);
+
+  d.prepare(
+    `INSERT INTO documents (id, profile_id, session_id, filename, file_type, total_chunks, total_tokens)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`
+  ).run(id, profileId, sessionId, filename, fileType, chunks.length, totalTokens);
+
+  const stmt = d.prepare(
+    `INSERT INTO document_chunks (document_id, chunk_index, content, token_estimate)
+     VALUES (?, ?, ?, ?)`
+  );
+
+  for (let i = 0; i < chunks.length; i++) {
+    stmt.run(id, i, chunks[i], estimateTokens(chunks[i]));
+  }
+
+  return {
+    documentId: id,
+    filename,
+    fileType,
+    totalChunks: chunks.length,
+    totalTokens,
+    previewText: textContent.slice(0, 200),
+  };
+}
+
+function getDocument(documentId) {
+  return getDb().prepare("SELECT * FROM documents WHERE id = ?").get(documentId);
+}
+
+function getDocumentChunks(documentId) {
+  return getDb()
+    .prepare("SELECT * FROM document_chunks WHERE document_id = ? ORDER BY chunk_index")
+    .all(documentId);
+}
+
+function getSessionDocuments(sessionId) {
+  return getDb()
+    .prepare("SELECT * FROM documents WHERE session_id = ? ORDER BY created_at")
+    .all(sessionId);
+}
+
+// --- Database backup ---
+
+const fs = require("fs");
+const BACKUP_DIR = path.join(__dirname, "..", "..", "data", "backups");
+
+function backupDatabase() {
+  if (!fs.existsSync(BACKUP_DIR)) {
+    fs.mkdirSync(BACKUP_DIR, { recursive: true });
+  }
+
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+  const backupPath = path.join(BACKUP_DIR, `kinward-${timestamp}.db`);
+
+  // Use SQLite's backup API via better-sqlite3 for a safe, consistent copy
+  getDb().backup(backupPath)
+    .then(() => {
+      console.log(`[db] Backup saved: ${backupPath}`);
+      // Keep only last 7 backups
+      pruneBackups(7);
+    })
+    .catch((err) => {
+      console.error("[db] Backup failed:", err.message);
+    });
+}
+
+function pruneBackups(keep = 7) {
+  try {
+    const files = fs.readdirSync(BACKUP_DIR)
+      .filter((f) => f.startsWith("kinward-") && f.endsWith(".db"))
+      .sort()
+      .reverse();
+
+    for (const file of files.slice(keep)) {
+      fs.unlinkSync(path.join(BACKUP_DIR, file));
+    }
+  } catch {
+    // Non-critical
+  }
+}
+
+// --- Full database export (for migration / backup) ---
+
+function exportFullDatabase() {
+  const d = getDb();
+
+  const profiles = d.prepare(
+    "SELECT id, name, role, avatar_color, guardrail_level, created_at FROM profiles"
+  ).all();
+
+  const sessions = d.prepare(
+    "SELECT id, profile_id, model_id, category, title, created_at, updated_at FROM sessions"
+  ).all();
+
+  const messages = d.prepare(
+    "SELECT id, session_id, role, content, tokens_used, created_at FROM messages"
+  ).all();
+
+  const memories = d.prepare(
+    "SELECT profile_id, category, key, value, source, created_at, updated_at FROM core_memory"
+  ).all();
+
+  const documents = d.prepare(
+    "SELECT id, profile_id, session_id, filename, file_type, total_chunks, total_tokens, created_at FROM documents"
+  ).all();
+
+  const identity = getAIIdentity();
+  const worldContext = getConfig("world_context");
+
+  return {
+    export_version: 2,
+    exported_at: new Date().toISOString(),
+    identity,
+    world_context: worldContext,
+    profiles,
+    sessions,
+    messages,
+    memories,
+    documents,
+    stats: {
+      profiles: profiles.length,
+      sessions: sessions.length,
+      messages: messages.length,
+      memories: memories.length,
+      documents: documents.length,
+    },
+  };
+}
+
+module.exports = {
+  getDb, initSchema, getConfig, setConfig, isSetupComplete, close,
+  getMemoryContext, getAIIdentity, setAIIdentity, DB_PATH,
+  estimateTokens, chunkText, storeDocument, getDocument, getDocumentChunks, getSessionDocuments,
+  backupDatabase, exportFullDatabase,
+};

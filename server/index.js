@@ -24,9 +24,21 @@ app.use("/api/memory", require("./routes/memory"));
 
 // --- Serve frontend (when built) ---
 const clientPath = path.join(__dirname, "..", "client", "dist");
-app.use(express.static(clientPath));
+
+// Service worker must never be cached by the browser — ensures updates propagate
+app.get("/sw.js", (req, res) => {
+  res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.setHeader("Content-Type", "application/javascript");
+  res.sendFile(path.join(clientPath, "sw.js"));
+});
+
+// Static assets — short cache with revalidation (Vite hashes built assets anyway)
+app.use(express.static(clientPath, { maxAge: "5m", etag: true }));
+
+// SPA fallback — never cache index.html so identity/config changes appear immediately
 app.get("*", (req, res) => {
   if (!req.path.startsWith("/api")) {
+    res.setHeader("Cache-Control", "no-cache");
     res.sendFile(path.join(clientPath, "index.html"));
   }
 });
@@ -35,9 +47,11 @@ app.get("*", (req, res) => {
 const server = http.createServer(app);
 const wss = new WebSocketServer({ server, path: "/ws" });
 
+const log = require("./lib/log");
+
 wss.on("connection", (ws) => {
-  console.log("[ws] Client connected");
-  ws.on("close", () => console.log("[ws] Client disconnected"));
+  log.debug("[ws] Client connected");
+  ws.on("close", () => log.debug("[ws] Client disconnected"));
 });
 
 // Make WSS available to routes (for model pull progress)
@@ -49,7 +63,9 @@ server.listen(PORT, HOST, async () => {
   const ollamaUp = await ollama.isOllamaRunning();
 
   console.log("");
-  console.log("  🛡️  KINWARD v0.1.0 — Lumina is waking up...");
+  const identity = db.getAIIdentity();
+  const aiName = identity.name || "Lumina";
+  console.log(`  🛡️  KINWARD v0.1.0 — ${aiName} is waking up...`);
   console.log("  ─────────────────────────────");
   console.log(`  Local:    http://localhost:${PORT}`);
   console.log(`  Network:  http://${getLocalIP()}:${PORT}`);
@@ -57,6 +73,11 @@ server.listen(PORT, HOST, async () => {
   console.log(`  Database: ${db.isSetupComplete() ? "✓ Setup complete" : "→ Wizard ready"}`);
   console.log("  ─────────────────────────────");
   console.log("");
+
+  // Auto-backup on startup (keeps last 7, non-blocking)
+  if (db.isSetupComplete()) {
+    db.backupDatabase();
+  }
 });
 
 // --- Cleanup ---

@@ -232,6 +232,62 @@ function getRecommendation(familyProfiles, hardwareTier) {
   return recs;
 }
 
+// --- Vision OCR ---
+const DEFAULT_VISION_MODEL = "llama3.2-vision";
+
+// Get the configured vision model (from DB config or default)
+function getVisionModel() {
+  try {
+    const { getConfig } = require("./db");
+    const configured = getConfig("vision_model");
+    return configured || DEFAULT_VISION_MODEL;
+  } catch {
+    return DEFAULT_VISION_MODEL;
+  }
+}
+
+async function ensureVisionModel(onProgress) {
+  const visionModel = getVisionModel();
+  const models = await listModels();
+  const hasVision = models.some((m) => m.name.startsWith(visionModel));
+  if (hasVision) return visionModel;
+
+  console.log(`[ollama] Vision model "${visionModel}" not found — pulling...`);
+  await pullModel(visionModel, onProgress);
+  console.log(`[ollama] Vision model "${visionModel}" pulled successfully`);
+  return visionModel;
+}
+
+async function imageToText(imageBase64) {
+  let lastLoggedPercent = -1;
+  const visionModel = await ensureVisionModel((progress) => {
+    const p = Math.floor(progress.percent / 10) * 10;
+    if (p > lastLoggedPercent) {
+      lastLoggedPercent = p;
+      console.log(`[ollama] Pulling vision model: ${p}%`);
+    }
+  });
+
+  const res = await ollamaFetch("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      model: visionModel,
+      messages: [
+        {
+          role: "user",
+          content: "Extract ALL text from this image exactly as it appears. Preserve the layout, numbers, dates, names, addresses, and any other details. If this is a receipt, invoice, form, or document, be thorough — every number and label matters. Output only the extracted text, nothing else.",
+          images: [imageBase64],
+        },
+      ],
+      stream: false,
+      options: { temperature: 0.1 },
+    }),
+  });
+
+  const data = await res.json();
+  return data.message?.content?.trim() || "";
+}
+
 module.exports = {
   isOllamaRunning,
   listModels,
@@ -241,5 +297,9 @@ module.exports = {
   chatSync,
   getHardwareInfo,
   getRecommendation,
+  imageToText,
+  ensureVisionModel,
   OLLAMA_BASE,
+  DEFAULT_VISION_MODEL,
+  getVisionModel,
 };
