@@ -17,45 +17,39 @@ Built for families who want the power of AI without handing their personal lives
 - **PIN-protected profiles** — simple security so your kids can't access adult conversations
 - **Four conversation modes** — General, Kids, Research, Creative — each with tuned behavior
 
-## Prerequisites
-
-1. **Node.js 20+** — [nodejs.org](https://nodejs.org)
-2. **Ollama** — [ollama.com](https://ollama.com)
-
-That's it. No Docker, no Python, no GPU required (though a GPU makes it faster).
-
 ## Quick Start
 
-### One command (Windows)
+### Windows
 
 ```
 start.bat
 ```
 
-### One command (Mac/Linux)
+### Mac / Linux
 
 ```bash
 chmod +x start.sh
 ./start.sh
 ```
 
-### Manual setup
+The start script checks for everything Kinward needs (Node.js, Ollama) and offers to install anything that's missing — no manual setup required. On Windows it uses `winget`, on Mac it uses Homebrew, on Linux it uses your package manager.
+
+Once running, the setup wizard walks you through creating family profiles and installing AI models. Open **http://localhost:5173** if the browser doesn't open automatically.
+
+### Manual setup (advanced)
+
+If you prefer to install prerequisites yourself:
+
+1. **Node.js 20+** — [nodejs.org](https://nodejs.org)
+2. **Ollama** — [ollama.com](https://ollama.com)
 
 ```bash
-# 1. Start Ollama (if not already running)
-ollama serve
-
-# 2. Install dependencies
-npm run setup
-
-# 3. Start Kinward
-npm run dev
-
-# 4. In a second terminal, start the frontend
-npm run client
+ollama serve          # Start Ollama
+npm install           # Install server deps
+cd client && npm install && cd ..  # Install client deps
+npm run dev           # Start backend
+cd client && npx vite --open       # Start frontend
 ```
-
-Open **http://localhost:5173** — the setup wizard walks you through everything.
 
 Other devices on your network can connect too — check the server console for your LAN IP.
 
