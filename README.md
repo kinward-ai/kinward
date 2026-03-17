@@ -1,65 +1,138 @@
-# ⚔️ Kinward
+# Kinward
 
-**Your Family's AI Guardian** — a privacy-first, family-governed AI platform that turns your hardware into a household AI node.
+**Your family's AI — running on your hardware, under your control.**
 
-## Quick Start
+Kinward turns a home computer into a private AI assistant that knows your family. It remembers preferences, reads your documents, and keeps every conversation private — no cloud, no subscriptions, no data leaving your network.
 
-### Prerequisites
+Built for families who want the power of AI without handing their personal lives to a tech company.
+
+## What It Does
+
+- **Multi-profile family access** — each family member gets their own profile with age-appropriate guardrails (kids, teens, adults)
+- **Persistent memory** — learns facts from conversations and documents. Tell it your kid's allergies once, it remembers forever.
+- **Document Drop** — upload PDFs, text files, and images. Ask questions about them. Key facts are extracted and stored automatically.
+- **Image OCR** — snap a photo of a form, receipt, or insurance card. Kinward reads it and remembers the important details.
+- **Works on your phone** — progressive web app runs on any device on your home network
+- **Dynamic AI identity** — name your AI whatever you want. It introduces itself accordingly.
+- **PIN-protected profiles** — simple security so your kids can't access adult conversations
+- **Four conversation modes** — General, Kids, Research, Creative — each with tuned behavior
+
+## Prerequisites
 
 1. **Node.js 20+** — [nodejs.org](https://nodejs.org)
 2. **Ollama** — [ollama.com](https://ollama.com)
-   ```bash
-   # After installing, make sure it's running:
-   ollama serve
-   ```
 
-### Install & Run
+That's it. No Docker, no Python, no GPU required (though a GPU makes it faster).
 
-```bash
-# Clone / copy this directory, then:
-npm run setup     # install deps + init database
-npm run dev       # start Kinward on port 3210
+## Quick Start
+
+### One command (Windows)
+
+```
+start.bat
 ```
 
-Open **http://localhost:3210** — the setup wizard will launch automatically.
+### One command (Mac/Linux)
 
-Other devices on your network can connect too (check the console for your LAN IP).
+```bash
+chmod +x start.sh
+./start.sh
+```
 
-### AMD GPU Note (RX 9070 XT)
+### Manual setup
 
-Your RDNA 4 card needs the HIP SDK for GPU acceleration:
-- Install **HIP SDK** from AMD (deselect the bundled display driver!)
-- Ollama should auto-detect the GPU after HIP is in place
-- Verify with: `ollama run llama3.1:8b "hello"` — check GPU usage in Task Manager
+```bash
+# 1. Start Ollama (if not already running)
+ollama serve
+
+# 2. Install dependencies
+npm run setup
+
+# 3. Start Kinward
+npm run dev
+
+# 4. In a second terminal, start the frontend
+npm run client
+```
+
+Open **http://localhost:5173** — the setup wizard walks you through everything.
+
+Other devices on your network can connect too — check the server console for your LAN IP.
+
+### Mobile Access
+
+Open the LAN URL on your phone's browser (e.g., `http://192.168.1.50:5173`). Tap "Add to Home Screen" for an app-like experience. File uploads work via the standard file picker, which gives you camera access on mobile.
 
 ## Project Structure
 
 ```
 kinward/
 ├── server/
-│   ├── index.js              # Express + WebSocket entry point
+│   ├── index.js                 # Express + WebSocket entry
 │   ├── lib/
-│   │   ├── db.js             # SQLite schema, helpers, config store
-│   │   └── ollama.js         # Ollama API adapter, hardware detection, recommendations
+│   │   ├── db.js                # SQLite schema, helpers, migrations
+│   │   ├── ollama.js            # Ollama API adapter, vision model support
+│   │   └── log.js               # Configurable debug logging
 │   └── routes/
-│       ├── system.js          # Health, hardware, config endpoints
-│       ├── profiles.js        # Family profile CRUD, auth, batch setup
-│       ├── models.js          # Model install/remove, recommendations
-│       └── chat.js            # Streaming chat with guardrail enforcement
-├── client/
-│   └── src/                   # React frontend (wizard + dashboard)
-├── scripts/
-│   ├── init-db.js             # First-time DB setup
-│   ├── reset.js               # Wipe DB for fresh test cycle
-│   └── timed-run.js           # Reset → start → open browser → stopwatch
+│       ├── system.js            # Health, config, identity endpoints
+│       ├── profiles.js          # Family profile CRUD + PIN auth
+│       ├── models.js            # Model install/remove
+│       ├── chat.js              # Streaming chat, document upload, memory extraction
+│       └── memory.js            # Core memory CRUD, export/import
+├── client/src/
+│   ├── main.jsx                 # App entry with error boundary
+│   ├── KinwardApp.jsx           # Router (wizard → chat → settings)
+│   ├── KinwardChat.jsx          # Chat orchestrator
+│   ├── KinwardSettings.jsx      # Admin settings panel
+│   ├── KinwardWizard.jsx        # First-time setup wizard
+│   └── components/
+│       ├── shared.js            # API helper, brand tokens, icons
+│       ├── ChatArea.jsx         # Messages, input, file upload
+│       ├── Sidebar.jsx          # Session list, profile chip
+│       ├── ProfileGate.jsx      # Login screen
+│       ├── PinModal.jsx         # PIN create/verify flow
+│       ├── PinKeypad.jsx        # Numeric keypad component
+│       ├── CategoryPicker.jsx   # Conversation mode selector
+│       └── ErrorBoundary.jsx    # Crash recovery screen
 ├── data/
-│   └── kinward.db             # SQLite database (gitignored)
+│   ├── kinward.db               # SQLite database (auto-created)
+│   └── uploads/                 # Temp upload storage
+├── scripts/
+│   ├── init-db.js               # First-time DB init
+│   ├── reset.js                 # Wipe DB for fresh test
+│   └── timed-run.js             # Timed test runner
+├── start.bat                    # One-click Windows launcher
+├── start.sh                     # One-click Mac/Linux launcher
 └── package.json
 ```
 
-## Testing the Assembly Line
+## Configuration
 
-The whole point is to time the setup flow repeatedly:
+### Debug Logging
+
+By default, Kinward runs quietly. To see detailed request-level logging:
+
+```bash
+DEBUG=true npm run dev
+```
+
+### Environment Modes
+
+| Mode | Description |
+|------|-------------|
+| **Open** | Full internet, marketplace, updates |
+| **Secured** | Internet limited to allowlist |
+| **Lockdown** | Zero internet, everything sideloaded |
+
+### Guardrail Levels
+
+| Level | For | Behavior |
+|-------|-----|----------|
+| **Strict** | Children (5-12) | Age-appropriate only, redirects unsafe topics |
+| **Moderate** | Teens (13-17) | More access, still filtered |
+| **Open** | Adults | Full model capability |
+
+## Testing
 
 ```bash
 # Quick reset (keep models, wipe profiles/config)
@@ -72,67 +145,56 @@ npm run reset:hard
 npm run test:timed
 ```
 
-The `test:timed` command resets everything, starts the server, opens the browser, and starts a stopwatch. Hand the device to someone. Press `Ctrl+C` when they finish. It prints the elapsed time.
+**Target:** Under 5 minutes for a family of four (with models pre-downloaded).
 
-**Target: under 5 minutes** for a family of four (with models pre-downloaded).
-**Target: under 10 minutes** including first model download on broadband.
+## Hardware Notes
 
-## API Endpoints
+Kinward runs on anything that can run Ollama. A basic setup:
+
+- **Minimum:** Any modern CPU, 8GB RAM — runs 3B models slowly but works
+- **Recommended:** 16GB RAM + any GPU with 6GB+ VRAM — runs 8B models smoothly
+- **Ideal:** 32GB RAM + GPU with 12GB+ VRAM — runs 70B models, fast inference
+
+### AMD GPU (RDNA 4 / RX 9070 XT)
+
+Install the HIP SDK from AMD (deselect the bundled display driver). Ollama auto-detects the GPU after HIP is in place. Verify with `ollama run llama3.1:8b "hello"` and check GPU usage in Task Manager.
+
+## API Reference
 
 ### System
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/system/status` | Health check, setup state, Ollama status |
-| GET | `/api/system/hardware` | Auto-detect hardware capabilities |
-| POST | `/api/system/config` | Save a config key/value |
-| POST | `/api/system/setup-complete` | Mark wizard as finished |
+| GET | `/api/system/status` | Health check, setup state |
+| GET | `/api/system/hardware` | Hardware detection |
+| GET | `/api/system/identity` | Get AI name/tagline |
+| PUT | `/api/system/identity` | Update AI identity |
 
 ### Profiles
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/profiles` | List all family profiles |
-| POST | `/api/profiles` | Create a single profile |
-| POST | `/api/profiles/setup-batch` | Bulk create admin + family (wizard) |
-| POST | `/api/profiles/:id/auth` | Authenticate with PIN |
-| DELETE | `/api/profiles/:id` | Remove a profile |
-
-### Models
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/api/models` | List installed models |
-| GET | `/api/models/recommend` | Smart recommendation from family makeup |
-| POST | `/api/models/install` | Pull model from Ollama (progress via WebSocket) |
-| DELETE | `/api/models/:id` | Remove a model |
+| GET | `/api/profiles` | List all profiles |
+| POST | `/api/profiles` | Create profile |
+| POST | `/api/profiles/setup-batch` | Bulk create (wizard) |
+| POST | `/api/profiles/:id/auth` | PIN authentication |
 
 ### Chat
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/chat/sessions` | List sessions for a profile |
-| POST | `/api/chat/sessions` | Create new chat session |
-| POST | `/api/chat/message` | Send message, stream response (SSE) |
+| GET | `/api/chat/sessions` | List sessions |
+| POST | `/api/chat/sessions` | Create session |
+| POST | `/api/chat/message` | Send message (SSE stream) |
+| POST | `/api/chat/upload` | Upload document/image |
+| GET | `/api/chat/documents/:id` | List session documents |
 
-### WebSocket
-
-Connect to `ws://localhost:3210/ws` for real-time events:
-- `model:progress` — download progress during model pull
-- `model:complete` — model finished installing
-
-## Environment Modes
-
-| Mode | Description |
-|------|-------------|
-| **Open** | Full internet, marketplace, updates |
-| **Secured** | Internet limited to allowlist |
-| **Lockdown** | Zero internet, everything sideloaded |
-
-## Guardrail Levels
-
-| Level | For | Behavior |
-|-------|-----|----------|
-| **Strict** | Children (5–12) | Age-appropriate only, redirects unsafe topics |
-| **Moderate** | Teens (13–17) | More access, still filtered |
-| **Open** | Adults | Full model capability |
+### Memory
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/memory/:profileId` | Get memories |
+| POST | `/api/memory/:profileId` | Add/update memory |
+| DELETE | `/api/memory/:profileId/:id` | Delete memory |
+| GET | `/api/memory/:profileId/export` | Export backup |
+| POST | `/api/memory/:profileId/import` | Import backup |
 
 ---
 
-*Built with Express, SQLite, Ollama, and React. No cloud required.*
+*Built with Express, better-sqlite3, Ollama, and React. No cloud required. Your data never leaves your home.*

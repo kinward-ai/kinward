@@ -4,17 +4,9 @@ const { v4: uuid } = require("uuid");
 const { getDb } = require("../lib/db");
 const ollama = require("../lib/ollama");
 
-// Default system prompts per category
-const SYSTEM_PROMPTS = {
-  general:
-    "You are a helpful, friendly AI assistant for a family household. Be clear, concise, and approachable. Avoid jargon. If you're unsure about something, say so.",
-  kids:
-    "You are a friendly helper for children. Use simple, age-appropriate language. Be encouraging and patient. Never discuss violence, adult content, or anything scary. If a child asks something you shouldn't answer, gently redirect them to ask a parent.",
-  research:
-    "You are a research assistant. Be thorough, cite your reasoning, and organize information clearly. When asked about complex topics, break them down step by step. Flag when a topic may have multiple valid perspectives.",
-  creative:
-    "You are a creative writing partner. Be imaginative, playful, and encouraging. Help with stories, poems, brainstorming, and creative projects. Match the user's energy and style. Keep content family-friendly unless the user's profile allows otherwise.",
-};
+// Note: System prompts are built dynamically in chat.js (buildSystemPrompt)
+// using the AI identity from ai_identity table + category extensions.
+// model_configs only stores temperature overrides per category.
 
 // GET /api/models — list installed models (from Ollama + our metadata)
 router.get("/", async (req, res) => {
@@ -70,14 +62,15 @@ router.post("/install", async (req, res) => {
     )
     .run(id, ollamaName, displayName || ollamaName, category, 0);
 
-  // Also create default config for this category
+  // Store category config (temperature only — system prompts are always built
+  // dynamically from ai_identity + category so name changes take effect immediately)
   const configId = uuid();
   getDb()
     .prepare(
-      `INSERT OR REPLACE INTO model_configs (id, model_id, category, system_prompt, temperature)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT OR REPLACE INTO model_configs (id, model_id, category, temperature)
+       VALUES (?, ?, ?, ?)`
     )
-    .run(configId, id, category, SYSTEM_PROMPTS[category] || SYSTEM_PROMPTS.general, category === "creative" ? 0.9 : 0.7);
+    .run(configId, id, category, category === "creative" ? 0.9 : 0.7);
 
   // Start pull — stream progress to any connected WebSocket clients
   const wss = req.app.get("wss");

@@ -1,14 +1,15 @@
-// Kinward Service Worker — v0.1.0
-// Caches app shell for fast loading. Chat requires the local server.
+// Kinward Service Worker — v0.2.0
+// Network-first for app assets (always fresh when server is reachable),
+// falls back to cache when offline. API calls are never cached.
 
-const CACHE_NAME = "kinward-v0.1.0";
+const CACHE_NAME = "kinward-v0.2.0";
 const SHELL_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
 ];
 
-// Install — cache app shell
+// Install — cache app shell for offline fallback
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -17,10 +18,11 @@ self.addEventListener("install", (event) => {
       });
     })
   );
+  // Activate immediately — don't wait for old tabs to close
   self.skipWaiting();
 });
 
-// Activate — clean old caches
+// Activate — clean old caches and take control of all pages
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
@@ -34,12 +36,12 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch — network-first for API, cache-first for static assets
+// Fetch — network-first for everything, cache as offline fallback
 self.addEventListener("fetch", (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Never cache API calls or WebSocket
+  // Never intercept API calls or WebSocket — let them pass through
   if (url.pathname.startsWith("/api") || url.pathname === "/ws") {
     return;
   }
@@ -49,23 +51,26 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Static assets — try cache first, fall back to network
+  // Network-first: try the server, cache the response, fall back to cache
   event.respondWith(
-    caches.match(request).then((cached) => {
-      if (cached) return cached;
-      return fetch(request).then((response) => {
-        // Cache successful responses for next time
+    fetch(request)
+      .then((response) => {
+        // Cache successful GET responses for offline fallback
         if (response.ok && request.method === "GET") {
           const clone = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
         }
         return response;
-      });
-    }).catch(() => {
-      // Offline fallback — return cached index for navigation requests
-      if (request.mode === "navigate") {
-        return caches.match("/index.html");
-      }
-    })
+      })
+      .catch(() => {
+        // Network failed — serve from cache (offline mode)
+        return caches.match(request).then((cached) => {
+          if (cached) return cached;
+          // For navigation requests, fall back to cached index.html
+          if (request.mode === "navigate") {
+            return caches.match("/index.html");
+          }
+        });
+      })
   );
 });

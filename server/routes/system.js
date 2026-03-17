@@ -94,4 +94,58 @@ router.put("/world-context", (req, res) => {
   res.json({ ok: true, updatedAt: new Date().toISOString() });
 });
 
+// ── AI Identity endpoints ────────────────────────────────────
+
+// GET /api/system/identity — get the AI's identity
+router.get("/identity", (req, res) => {
+  const identity = db.getAIIdentity();
+  res.json(identity);
+});
+
+// PUT /api/system/identity — update the AI's identity
+router.put("/identity", (req, res) => {
+  const { name, tagline, personality_style } = req.body;
+
+  if (name !== undefined) {
+    if (typeof name !== "string" || name.trim().length === 0) {
+      return res.status(400).json({ error: "Name must be a non-empty string" });
+    }
+    if (name.length > 30) {
+      return res.status(400).json({ error: "Name must be under 30 characters" });
+    }
+    db.setAIIdentity("name", name.trim());
+  }
+  if (tagline !== undefined) {
+    db.setAIIdentity("tagline", tagline.trim());
+  }
+  if (personality_style !== undefined) {
+    db.setAIIdentity("personality_style", personality_style.trim());
+  }
+  db.setAIIdentity("chosen_by", "admin");
+
+  const updated = db.getAIIdentity();
+  res.json({ ok: true, identity: updated });
+});
+
+// GET /api/system/export — full database export (for backup / migration)
+router.get("/export", (req, res) => {
+  try {
+    const data = db.exportFullDatabase();
+    res.setHeader("Content-Disposition", `attachment; filename="kinward-export-${new Date().toISOString().slice(0, 10)}.json"`);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: "Export failed: " + err.message });
+  }
+});
+
+// POST /api/system/backup — trigger manual database backup
+router.post("/backup", (req, res) => {
+  try {
+    db.backupDatabase();
+    res.json({ ok: true, message: "Backup started" });
+  } catch (err) {
+    res.status(500).json({ error: "Backup failed: " + err.message });
+  }
+});
+
 module.exports = router;

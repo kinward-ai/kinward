@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const db = require("../lib/db");
+const log = require("../lib/log");
 
 /**
  * GET /api/memory/:profileId
@@ -31,7 +32,7 @@ router.get("/:profileId", (req, res) => {
 
     res.json({ profile_id: profileId, memories });
   } catch (err) {
-    console.error("[core-memory] GET error:", err);
+    log.error("[core-memory] GET error:", err);
     res.status(500).json({ error: "Failed to retrieve memories" });
   }
 });
@@ -66,7 +67,7 @@ router.post("/:profileId", (req, res) => {
       message: `Memory saved: ${key}`,
     });
   } catch (err) {
-    console.error("[core-memory] POST error:", err);
+    log.error("[core-memory] POST error:", err);
     res.status(500).json({ error: "Failed to save memory" });
   }
 });
@@ -90,7 +91,7 @@ router.delete("/:profileId/:memoryId", (req, res) => {
 
     res.json({ success: true, message: "Memory deleted" });
   } catch (err) {
-    console.error("[core-memory] DELETE error:", err);
+    log.error("[core-memory] DELETE error:", err);
     res.status(500).json({ error: "Failed to delete memory" });
   }
 });
@@ -122,7 +123,7 @@ router.get("/:profileId/export", (req, res) => {
       memories,
     });
   } catch (err) {
-    console.error("[core-memory] Export error:", err);
+    log.error("[core-memory] Export error:", err);
     res.status(500).json({ error: "Failed to export memories" });
   }
 });
@@ -168,7 +169,7 @@ router.post("/:profileId/import", (req, res) => {
     const count = insertMany(memories);
     res.json({ success: true, imported: count });
   } catch (err) {
-    console.error("[core-memory] Import error:", err);
+    log.error("[core-memory] Import error:", err);
     res.status(500).json({ error: "Failed to import memories" });
   }
 });
