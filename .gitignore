@@ -33,5 +33,13 @@ Thumbs.db
 *.log
 npm-debug.log*
 
-# Launch post (internal)
+# Internal docs (not for public repo)
 LAUNCH-POST.md
+STATUS.md
+DOCUMENT-DROP-SPEC.md
+MEMORY-ENGINE-SPEC.md
+KINWARD-ROADMAP.md
+kinward-roadmap.html
+kinward-roadmap-visual.html
+kinward-site-preview.html
+install-flow.html

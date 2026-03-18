@@ -131,11 +131,21 @@ exit /b 1
 :LAUNCH
 echo   [4/4] Launching Kinward...
 echo.
-echo   -------------------------------------
-echo     Kinward is starting up!
-echo     The browser will open automatically.
-echo     Close this window to stop the server.
-echo   -------------------------------------
+echo   =====================================
+echo.
+echo     Kinward is running!
+echo.
+echo     Open in your browser:
+echo       http://localhost:5173
+echo.
+echo     Other devices on your network:
+echo       Check the address shown below
+echo.
+echo     TO STOP:  Close this window
+echo               or press Ctrl+C
+echo     TO RESTART: Double-click start.bat
+echo.
+echo   =====================================
 echo.
 
 start /B "kinward-server" node server/index.js
