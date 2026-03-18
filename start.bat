@@ -12,6 +12,24 @@ where node >NUL 2>&1
 if ERRORLEVEL 1 goto :NO_NODE
 for /f "tokens=*" %%v in ('node -v') do set NODEVER=%%v
 echo   [1/4] Node.js %NODEVER% found
+
+:: Check Node major version — warn if not LTS (20 or 22)
+for /f "tokens=1 delims=." %%m in ("%NODEVER:v=%") do set NODEMAJOR=%%m
+if !NODEMAJOR! GEQ 23 (
+    echo.
+    echo   [!] WARNING: Node.js v!NODEMAJOR! is not a Long Term Support version.
+    echo       Kinward works best with Node.js v20 or v22 LTS.
+    echo       Bleeding-edge versions may fail to compile better-sqlite3.
+    echo.
+    echo       Download Node.js LTS from: https://nodejs.org
+    echo       On Windows: winget install OpenJS.NodeJS.LTS
+    echo.
+    set /p CONTINUE_NODE="         Continue anyway? (Y/N): "
+    if /I "!CONTINUE_NODE!" NEQ "Y" (
+        pause
+        exit /b 1
+    )
+)
 goto :CHECK_OLLAMA
 
 :NO_NODE

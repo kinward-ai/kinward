@@ -34,13 +34,15 @@ chmod +x start.sh
 
 The start script checks for everything Kinward needs (Node.js, Ollama) and offers to install anything that's missing — no manual setup required. On Windows it uses `winget`, on Mac it uses Homebrew, on Linux it uses your package manager.
 
+> **Node.js version note:** Kinward requires Node.js v20 or v22 (LTS). Bleeding-edge versions (v23+) may fail to compile native modules like better-sqlite3. The start script will warn you if your Node version is unsupported.
+
 Once running, the setup wizard walks you through creating family profiles and installing AI models. Open **http://localhost:5173** if the browser doesn't open automatically.
 
 ### Manual setup (advanced)
 
 If you prefer to install prerequisites yourself:
 
-1. **Node.js 20+** — [nodejs.org](https://nodejs.org)
+1. **Node.js 20 or 22 LTS** — [nodejs.org](https://nodejs.org) (avoid v23+ — native modules may not compile)
 2. **Ollama** — [ollama.com](https://ollama.com)
 
 ```bash
@@ -80,7 +82,7 @@ kinward/
 │   ├── KinwardSettings.jsx      # Admin settings panel
 │   ├── KinwardWizard.jsx        # First-time setup wizard
 │   └── components/
-│       ├── shared.js            # API helper, brand tokens, icons
+│       ├── shared.jsx           # API helper, brand tokens, icons
 │       ├── ChatArea.jsx         # Messages, input, file upload
 │       ├── Sidebar.jsx          # Session list, profile chip
 │       ├── ProfileGate.jsx      # Login screen
