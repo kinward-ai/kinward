@@ -80,6 +80,25 @@ if ! command -v node &> /dev/null; then
 else
     NODEVER=$(node -v)
     echo "  [1/4] Node.js $NODEVER found"
+
+    # Check Node major version — warn if not LTS
+    NODE_MAJOR=$(echo "$NODEVER" | sed 's/v//' | cut -d. -f1)
+    if [ "$NODE_MAJOR" -ge 23 ] 2>/dev/null; then
+        echo ""
+        echo "  [!] WARNING: Node.js v${NODE_MAJOR} is not a Long Term Support version."
+        echo "      Kinward works best with Node.js v20 or v22 LTS."
+        echo "      Bleeding-edge versions may fail to compile better-sqlite3."
+        echo ""
+        if [[ "$OS" == "mac" ]]; then
+            echo "      To fix:  brew install node@22 && brew link --overwrite node@22 --force"
+        elif [[ "$OS" == "linux" ]]; then
+            echo "      Download LTS from: https://nodejs.org"
+        fi
+        echo ""
+        if ! ask_yn "Continue anyway?"; then
+            exit 1
+        fi
+    fi
 fi
 
 # ──────────────────────────────────────
@@ -145,6 +164,26 @@ if [ ! -d "node_modules" ]; then
         if grep -qi "node-gyp\|gyp ERR\|make: " /tmp/kinward-npm-err.log 2>/dev/null; then
             echo ""
             echo "  [!] A native module failed to build (better-sqlite3)."
+            echo ""
+
+            # First check: is this a Node version problem?
+            NODE_MAJOR=$(node -v | sed 's/v//' | cut -d. -f1)
+            if [ "$NODE_MAJOR" -ge 23 ] 2>/dev/null; then
+                echo "      LIKELY CAUSE: Node.js v${NODE_MAJOR} is too new."
+                echo "      better-sqlite3 does not have prebuilt binaries for this version."
+                echo ""
+                echo "      FIX: Install Node.js v22 LTS instead:"
+                if [[ "$OS" == "mac" ]]; then
+                    echo "        brew install node@22 && brew link --overwrite node@22 --force"
+                elif [[ "$OS" == "linux" ]]; then
+                    echo "        Download Node.js 22 LTS from: https://nodejs.org"
+                fi
+                echo ""
+                echo "      Then run ./start.sh again."
+                exit 1
+            fi
+
+            # Second check: missing build tools
             echo "      This usually means build tools are missing."
             echo ""
             if [[ "$OS" == "mac" ]]; then
