@@ -381,6 +381,41 @@
     </div>
   </div>
 
+  <!-- STOPPING & RESTARTING -->
+  <div class="phase" style="padding-top: 32px;">
+    <div class="phase-header">
+      <div class="phase-num" style="background: var(--wood);">&#8635;</div>
+      <div class="phase-info">
+        <div class="phase-title">Stopping &amp; Restarting</div>
+        <div class="phase-time">Good to know</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon">&#9209;&#65039;</div>
+        <div class="card-label">How to stop Kinward</div>
+      </div>
+      <div class="card-body">
+        <p><strong>Option A:</strong> Close the terminal/PowerShell window that's running Kinward.</p>
+        <p><strong>Option B:</strong> Double-click <strong>stop.bat</strong> (Windows) or run <strong>./stop.sh</strong> (Mac/Linux).</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon">&#9654;&#65039;</div>
+        <div class="card-label">How to restart Kinward</div>
+      </div>
+      <div class="card-body">
+        <p>Just double-click <strong>start.bat</strong> (or run <strong>./start.sh</strong>) again. Your profiles, conversations, and memories are all saved — nothing is lost. Startup is fast after the first time (a few seconds).</p>
+        <div class="tip">
+          <strong>Important:</strong> Kinward only runs while the terminal window is open. If you restart your computer, you'll need to run start.bat again. Your data is always safe — it's stored in a local database file that persists between restarts.
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- TROUBLESHOOTING -->
   <div class="phase" style="padding-top: 32px;">
     <div class="phase-header">
@@ -394,6 +429,7 @@
     <div class="card">
       <div class="card-body">
         <p><strong>"The browser didn't open"</strong> — Open your browser manually and go to <a href="http://localhost:5173" style="color: var(--orange);">http://localhost:5173</a></p>
+        <p><strong>"The page says it can't connect"</strong> — Kinward probably isn't running. Double-click <strong>start.bat</strong> to start it up again.</p>
         <p><strong>"npm install failed"</strong> — The script will tell you what's missing and offer to install it. If it still fails, check your internet connection and try again.</p>
         <p><strong>"It says Ollama isn't running"</strong> — Open a new terminal and run <code style="font-family: 'DM Mono', monospace; font-size: 13px; background: var(--cream-deep); padding: 2px 6px; border-radius: 4px;">ollama serve</code>, then refresh the page.</p>
         <p><strong>"The AI is slow"</strong> — Smaller models run faster. In Settings, try switching to a lighter model. A GPU makes a big difference — even a budget one.</p>
