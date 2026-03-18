@@ -9,7 +9,6 @@ import { api, API, BRAND as B, ShieldIcon } from "./components/shared";
    - Family Profiles (view)
    - About / System info
    ───────────────────────────────────────────── */
-}
 
 // ── Role colors ─────────────────────────────
 const ROLE_COLORS = {
