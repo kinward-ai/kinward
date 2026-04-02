@@ -1,5 +1,11 @@
 const path = require("path");
-const DB_PATH = path.join(__dirname, "..", "..", "data", "kinward.db");
+const { existsSync, mkdirSync } = require("fs");
+
+// When running inside Electron, KINWARD_DATA_DIR points to the user's app data folder.
+// Outside Electron, falls back to the local ./data/ directory.
+const DATA_DIR = process.env.KINWARD_DATA_DIR || path.join(__dirname, "..", "..", "data");
+if (!existsSync(DATA_DIR)) mkdirSync(DATA_DIR, { recursive: true });
+const DB_PATH = path.join(DATA_DIR, "kinward.db");
 
 let db;
 
@@ -352,7 +358,7 @@ function getSessionDocuments(sessionId) {
 // --- Database backup ---
 
 const fs = require("fs");
-const BACKUP_DIR = path.join(__dirname, "..", "..", "data", "backups");
+const BACKUP_DIR = path.join(DATA_DIR, "backups");
 
 function backupDatabase() {
   if (!fs.existsSync(BACKUP_DIR)) {

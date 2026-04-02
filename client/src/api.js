@@ -19,6 +19,8 @@ async function api(endpoint, options = {}) {
 // --- System ---
 export const getStatus = () => api("/api/system/status");
 export const getHardware = () => api("/api/system/hardware");
+export const autoDetect = () => api("/api/system/auto-detect");
+export const getOllamaStatus = () => api("/api/system/ollama-status");
 export const setConfig = (key, value) =>
   api("/api/system/config", { method: "POST", body: { key, value } });
 export const completeSetup = () =>

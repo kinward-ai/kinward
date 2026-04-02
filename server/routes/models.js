@@ -3,6 +3,7 @@ const router = express.Router();
 const { v4: uuid } = require("uuid");
 const { getDb } = require("../lib/db");
 const ollama = require("../lib/ollama");
+const { getCatalog } = require("../lib/model-catalog");
 
 // Note: System prompts are built dynamically in chat.js (buildSystemPrompt)
 // using the AI identity from ai_identity table + category extensions.
@@ -35,14 +36,52 @@ router.get("/", async (req, res) => {
   }
 });
 
+// GET /api/models/catalog — curated catalog with installed status + hardware suitability
+router.get("/catalog", async (req, res) => {
+  try {
+    const hardwareInfo = await ollama.getHardwareInfo();
+    const catalog = getCatalog(hardwareInfo.tier);
+
+    // Enrich each entry with installed status
+    let installed = [];
+    try {
+      installed = await ollama.listModels();
+    } catch {
+      // Ollama might be offline — catalog still loads, just no installed status
+    }
+
+    const installedNames = new Set(installed.map((m) => m.name));
+
+    const enriched = catalog.map((entry) => ({
+      ...entry,
+      installed: installedNames.has(entry.ollama),
+    }));
+
+    res.json({
+      catalog: enriched,
+      hardware: {
+        tier: hardwareInfo.tier,
+        friendlySummary: hardwareInfo.friendlySummary,
+        ram: hardwareInfo.ram,
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /api/models/recommend — smart recommendation based on family makeup
-router.get("/recommend", (req, res) => {
-  const profiles = getDb()
-    .prepare("SELECT role FROM profiles")
-    .all();
-  const hardwareTier = "excellent"; // TODO: wire to actual detection
-  const recs = ollama.getRecommendation(profiles, hardwareTier);
-  res.json(recs);
+router.get("/recommend", async (req, res) => {
+  try {
+    const profiles = getDb()
+      .prepare("SELECT role FROM profiles")
+      .all();
+    const hardwareInfo = await ollama.getHardwareInfo();
+    const recs = ollama.getRecommendation(profiles, hardwareInfo.tier);
+    res.json(recs);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // POST /api/models/install — pull a model from Ollama (returns immediately, progress via WS)
@@ -74,9 +113,18 @@ router.post("/install", async (req, res) => {
 
   // Start pull — stream progress to any connected WebSocket clients
   const wss = req.app.get("wss");
+  const pullStartTime = Date.now();
 
   try {
     await ollama.pullModel(ollamaName, (progress) => {
+      // Calculate ETA based on download speed
+      const elapsed = (Date.now() - pullStartTime) / 1000;
+      const bytesPerSec = progress.completed > 0 ? progress.completed / elapsed : 0;
+      const estimatedSecondsRemaining =
+        progress.total > 0 && bytesPerSec > 0
+          ? Math.round((progress.total - progress.completed) / bytesPerSec)
+          : null;
+
       // Broadcast to all connected WS clients
       if (wss) {
         const msg = JSON.stringify({
@@ -84,6 +132,8 @@ router.post("/install", async (req, res) => {
           modelId: id,
           ollamaName,
           ...progress,
+          estimatedSecondsRemaining,
+          bytesPerSecond: Math.round(bytesPerSec),
         });
         wss.clients.forEach((client) => {
           if (client.readyState === 1) client.send(msg);

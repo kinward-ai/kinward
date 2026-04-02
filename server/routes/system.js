@@ -37,6 +37,37 @@ router.get("/hardware", async (req, res) => {
   }
 });
 
+// GET /api/system/auto-detect — combined Ollama check + hardware detection in one call
+router.get("/auto-detect", async (req, res) => {
+  const ollamaRunning = await ollama.isOllamaRunning();
+  if (!ollamaRunning) {
+    return res.json({ ollamaRunning: false, hardware: null });
+  }
+  try {
+    const hardware = await ollama.getHardwareInfo();
+    res.json({ ollamaRunning: true, hardware });
+  } catch (err) {
+    res.json({ ollamaRunning: true, hardware: null, error: err.message });
+  }
+});
+
+// GET /api/system/ollama-status — granular Ollama health for the UI
+router.get("/ollama-status", async (req, res) => {
+  const running = await ollama.isOllamaRunning();
+  if (!running) {
+    return res.json({ state: "offline", message: "Ollama is not running" });
+  }
+  try {
+    const models = await ollama.listModels();
+    if (models.length === 0) {
+      return res.json({ state: "no-models", message: "Ollama is running but no models are installed" });
+    }
+    res.json({ state: "ready", message: "Ollama is ready", modelCount: models.length });
+  } catch (err) {
+    res.json({ state: "error", message: err.message });
+  }
+});
+
 // POST /api/system/config — save setup config
 router.post("/config", (req, res) => {
   const { key, value } = req.body;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { api, API, BRAND as B, ShieldIcon } from "./components/shared";
+import { ModelManager } from "./components/ModelManager";
 
 /* ─────────────────────────────────────────────
    KINWARD SETTINGS PANEL
@@ -24,6 +25,7 @@ const SECTIONS = [
   { id: "identity", label: "AI Identity", icon: "✨" },
   { id: "memory", label: "Lumina's Memory", icon: "🧠" },
   { id: "world", label: "World Context", icon: "🌍" },
+  { id: "models", label: "AI Models", icon: "📦" },
   { id: "profiles", label: "Family", icon: "👥" },
   { id: "about", label: "About", icon: "🛡️" },
 ];
@@ -679,6 +681,8 @@ export default function KinwardSettings({ user, onBack }) {
         return <MemorySection adminProfile={user} />;
       case "world":
         return <WorldContextSection />;
+      case "models":
+        return <ModelManager />;
       case "profiles":
         return <ProfilesSection />;
       case "about":

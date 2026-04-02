@@ -174,15 +174,20 @@ async function getHardwareInfo() {
 
   // Determine capability tier
   const ramGb = os.totalmem() / 1e9;
+  const platformName = os.platform() === "darwin" ? "Mac" : os.platform() === "win32" ? "PC" : "machine";
+
   if (ramGb >= 24) {
     info.tier = "excellent";
-    info.message = `You're running ${info.cpu.split("@")[0].trim()} with ${info.ram} of memory. That's excellent — you can run most AI models comfortably.`;
+    info.message = "Your machine is powerful — it can handle large AI models with ease.";
+    info.friendlySummary = `${platformName} with ${info.ram} memory — Excellent`;
   } else if (ramGb >= 12) {
     info.tier = "good";
-    info.message = `You're running ${info.cpu.split("@")[0].trim()} with ${info.ram} of memory. That's solid — you can run most common AI models.`;
+    info.message = "Your machine is solid — it can run a mid-size AI model comfortably.";
+    info.friendlySummary = `${platformName} with ${info.ram} memory — Good`;
   } else {
     info.tier = "basic";
-    info.message = `You're running ${info.cpu.split("@")[0].trim()} with ${info.ram} of memory. You can run smaller AI models comfortably.`;
+    info.message = "Your machine can run a compact AI model — perfect for everyday tasks.";
+    info.friendlySummary = `${platformName} with ${info.ram} memory — Basic`;
   }
 
   return info;
@@ -194,20 +199,43 @@ function getRecommendation(familyProfiles, hardwareTier) {
   const hasTeens = familyProfiles.some((p) => p.role === "teen");
   const adultsOnly = !hasKids && !hasTeens;
 
+  // Tier-aware primary model: use Mistral Small 24B on capable hardware
+  const useMistral = hardwareTier === "excellent";
+  const primary = useMistral
+    ? {
+        ollama: "mistral-small:24b",
+        display: "Mistral Small 24B",
+        category: "general",
+        size: "14 GB",
+        reason: "Powerful reasoning and conversation — rivals models 3× its size",
+      }
+    : {
+        ollama: "llama3.1:8b",
+        display: "Llama 3.1 8B",
+        category: "general",
+        size: "4.7 GB",
+        reason: "Handles everyday tasks, writing, and questions well",
+      };
+
   const recs = {
-    primary: {
-      ollama: "llama3.1:8b",
-      display: "Llama 3.1 8B",
-      category: "general",
-      size: "4.7 GB",
-      reason: "Handles everyday tasks, writing, and questions well",
-    },
+    primary,
     optional: [],
     setupLabel: adultsOnly ? "Quick Setup" : "Family Setup",
     description: adultsOnly
       ? "One model that covers most everyday tasks."
       : "Recommended for your family's mix of ages and needs.",
   };
+
+  // On excellent hardware with Mistral primary, offer Llama 8B as a fast fallback
+  if (useMistral) {
+    recs.optional.push({
+      ollama: "llama3.1:8b",
+      display: "Llama 3.1 8B",
+      category: "general",
+      size: "4.7 GB",
+      reason: "Faster responses for quick tasks — lighter on resources",
+    });
+  }
 
   if (hasKids) {
     recs.optional.push({

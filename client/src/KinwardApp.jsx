@@ -31,6 +31,13 @@ export default function KinwardApp() {
     checkStatus();
   }, []);
 
+  // ── Auto-retry when in error state ──
+  useEffect(() => {
+    if (view !== "error") return;
+    const retryTimer = setInterval(() => checkStatus(), 5000);
+    return () => clearInterval(retryTimer);
+  }, [view]);
+
   async function checkStatus() {
     setView("loading");
     setError(null);
@@ -75,19 +82,23 @@ export default function KinwardApp() {
 
   // ── Error state (server not reachable) ──
   if (view === "error") {
+    const isNetwork = error && (error.includes("fetch") || error.includes("Failed") || error.includes("NetworkError"));
     return (
       <div style={styles.center}>
-        <div style={styles.errorIcon}>⚠</div>
-        <h2 style={styles.errorTitle}>Can't reach Kinward</h2>
+        <div style={styles.errorIcon}>💤</div>
+        <h2 style={styles.errorTitle}>{isNetwork ? "Lumina is waking up..." : "Can't reach Kinward"}</h2>
         <p style={styles.errorBody}>
-          Make sure the server is running on port 3210.
-          <br />
-          <code style={styles.code}>npm run dev</code>
+          {isNetwork
+            ? "The server isn't responding yet. This page will reconnect automatically."
+            : "Something went wrong connecting to the server."}
         </p>
         {error && <p style={styles.errorDetail}>{error}</p>}
         <button style={styles.retryBtn} onClick={checkStatus}>
           Try Again
         </button>
+        <p style={{ fontSize: 11, color: "#999", fontFamily: "'DM Mono', monospace" }}>
+          Retrying every 5 seconds...
+        </p>
       </div>
     );
   }

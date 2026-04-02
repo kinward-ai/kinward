@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Your Family's AI Guardian — local-first AI platform",
   "private": true,
+  "main": "electron/main.js",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",
@@ -10,7 +11,14 @@
     "setup": "npm install && cd client && npm install && cd .. && node scripts/init-db.js",
     "reset": "node scripts/reset.js",
     "reset:hard": "node scripts/reset.js --wipe-models",
-    "test:timed": "node scripts/timed-run.js"
+    "test:timed": "node scripts/timed-run.js",
+    "client:build": "cd client && npm run build",
+    "electron:rebuild": "node scripts/electron-rebuild.js",
+    "electron:rebuild:system": "node scripts/electron-rebuild.js --system",
+    "electron:dev": "npm run client:build && npm run electron:rebuild && electron .",
+    "electron:build": "npm run client:build && npm run electron:rebuild && electron-builder",
+    "electron:dev:hot": "ELECTRON_DEV=1 npm run electron:rebuild && electron .",
+    "postinstall": "echo 'Run npm run electron:rebuild before launching Electron'"
   },
   "dependencies": {
     "bcrypt": "^5.1.1",
@@ -24,6 +32,40 @@
     "ws": "^8.16.0"
   },
   "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0",
+    "electron-rebuild": "^3.2.9",
     "nodemon": "^3.0.0"
+  },
+  "build": {
+    "appId": "com.kinward.app",
+    "productName": "Kinward",
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "electron/**/*",
+      "server/**/*",
+      "client/dist/**/*",
+      "package.json",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "electron/icons/icon.icns",
+      "target": [
+        "dmg"
+      ]
+    },
+    "win": {
+      "icon": "electron/icons/icon.ico",
+      "target": [
+        "nsis"
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "allowToChangeInstallationDirectory": false
+    }
   }
 }

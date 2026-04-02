@@ -78,6 +78,9 @@ server.listen(PORT, HOST, async () => {
   if (db.isSetupComplete()) {
     db.backupDatabase();
   }
+
+  // Signal Electron that server is ready (no-op outside Electron)
+  if (process.send) process.send({ type: "server-ready", port: PORT });
 });
 
 // --- Cleanup ---

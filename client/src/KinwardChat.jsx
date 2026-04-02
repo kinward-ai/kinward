@@ -3,6 +3,7 @@ import { api, BRAND } from "./components/shared";
 import { ProfileGate } from "./components/ProfileGate";
 import { Sidebar } from "./components/Sidebar";
 import { ChatArea } from "./components/ChatArea";
+import { OllamaStatus } from "./components/OllamaStatus";
 
 /* ─────────────────────────────────────────────
    KINWARD CHAT INTERFACE
@@ -854,11 +855,22 @@ export default function KinwardChat({ onOpenSettings }) {
       }
     } catch (err) {
       console.error("Chat error:", err);
+      const msg = err.message || "";
+      let friendlyError;
+      if (msg.includes("Failed to fetch") || msg.includes("NetworkError") || msg.includes("ECONNREFUSED")) {
+        friendlyError = "Lumina can't reach the server right now. Check that the app is running properly.";
+      } else if (msg.includes("model") && msg.includes("not found")) {
+        friendlyError = "The AI model for this conversation isn't installed. Try switching to General Assistant, or go to Settings to install a model.";
+      } else if (msg.includes("500") || msg.includes("Ollama")) {
+        friendlyError = "Lumina is having trouble thinking right now. Ollama might need a restart — check the status banner above.";
+      } else {
+        friendlyError = msg || "Something went wrong. Make sure Ollama is running and a model is loaded.";
+      }
       setMessages((prev) => [
         ...prev,
         {
           role: "assistant",
-          content: `⚠️ ${err.message || "Couldn't get a response. Make sure Ollama is running and the model is loaded."}`,
+          content: `💤 ${friendlyError}`,
           timestamp: new Date().toISOString(),
         },
       ]);
@@ -904,15 +916,18 @@ export default function KinwardChat({ onOpenSettings }) {
             onOpenSettings={onOpenSettings ? () => onOpenSettings(user) : null}
             aiName={aiName}
           />
-          <ChatArea
-            profile={user}
-            session={activeSession}
-            messages={messages}
-            streaming={streaming}
-            streamText={streamText}
-            onSend={handleSend}
-            aiName={aiName}
-          />
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, minWidth: 0 }}>
+            <OllamaStatus />
+            <ChatArea
+              profile={user}
+              session={activeSession}
+              messages={messages}
+              streaming={streaming}
+              streamText={streamText}
+              onSend={handleSend}
+              aiName={aiName}
+            />
+          </div>
         </div>
       )}
     </div>

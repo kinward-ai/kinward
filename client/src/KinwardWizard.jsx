@@ -171,20 +171,23 @@ const COLORS = {
   green: "#4A8B3F", red: "#B5442E",
 };
 
-const STEPS = ["Welcome", "Ollama", "Hardware", "Environment", "Your Profile", "Family", "AI Models", "Ready"];
+const STEPS = ["Welcome", "Setup Check", "Environment", "Your Profile", "Family", "AI Models", "Ready"];
 
 const baseBtn = {
   fontFamily: "'Courier New', Courier, monospace", fontSize: 15, fontWeight: 700,
-  border: "none", borderRadius: 8, cursor: "pointer", padding: "12px 32px",
+  border: "none", borderRadius: 8, cursor: "pointer", padding: "14px 32px",
   transition: "all 0.18s ease", letterSpacing: 0.5,
+  minHeight: 48, // 48px minimum for mobile tap targets
 };
 const primaryBtn = { ...baseBtn, background: COLORS.orange, color: COLORS.white };
 const secondaryBtn = { ...baseBtn, background: "transparent", color: COLORS.orange, border: `2px solid ${COLORS.orange}` };
 const inputStyle = {
-  fontFamily: "'Courier New', Courier, monospace", fontSize: 15, padding: "10px 14px",
+  fontFamily: "'Courier New', Courier, monospace", fontSize: 16, // 16px prevents iOS zoom on focus
+  padding: "12px 14px",
   border: `2px solid ${COLORS.border}`, borderRadius: 8, background: COLORS.white,
   color: COLORS.text, outline: "none", width: "100%", boxSizing: "border-box",
   transition: "border-color 0.15s",
+  minHeight: 48, // mobile tap target
 };
 
 function BtnPrimary({ children, onClick, disabled, style = {} }) {
@@ -222,69 +225,113 @@ function StepWelcome({ onNext }) {
 }
 
 // ============================================================
-// STEP 1: OLLAMA CHECK
+// STEP 1: AUTO-DETECT (combined Ollama check + hardware scan)
 // ============================================================
-const OLLAMA_URLS = {
-  win32: "https://ollama.com/download/OllamaSetup.exe",
-  darwin: "https://ollama.com/download/Ollama-darwin.zip",
-  linux: "https://ollama.com/download",
-};
-
-function StepOllama({ onNext }) {
-  const [phase, setPhase] = useState("checking"); // checking | missing | found
+function StepAutoDetect({ data, setData, onNext }) {
+  const [phase, setPhase] = useState("scanning"); // scanning | ready | ollama-missing | error
+  const [hardware, setHardware] = useState(null);
+  const [error, setError] = useState(null);
   const [retrying, setRetrying] = useState(false);
+  const onNextRef = useRef(onNext);
+  onNextRef.current = onNext;
+  const hasAdvanced = useRef(false);
 
-  const checkOllama = useCallback(async () => {
+  const runDetect = useCallback(async () => {
+    setPhase("scanning");
+    setError(null);
     try {
-      const status = await API.getStatus();
-      if (status.ollamaRunning) {
-        setPhase("found");
-        setTimeout(onNext, 1200); // auto-advance after brief confirmation
-      } else {
-        setPhase("missing");
+      const result = await API.autoDetect();
+      if (!result.ollamaRunning) {
+        setPhase("ollama-missing");
+        return;
       }
-    } catch {
-      setPhase("missing");
+      if (result.hardware) {
+        setHardware(result.hardware);
+        setData((d) => ({ ...d, hardware: result.hardware }));
+        setPhase("ready");
+        if (!hasAdvanced.current) {
+          hasAdvanced.current = true;
+          setTimeout(() => onNextRef.current(), 2000);
+        }
+      } else {
+        setError(result.error || "Could not detect hardware.");
+        setPhase("error");
+      }
+    } catch (err) {
+      setPhase("ollama-missing");
     }
-  }, [onNext]);
+  }, [setData]);
 
-  useEffect(() => { checkOllama(); }, [checkOllama]);
+  useEffect(() => { runDetect(); }, []);
 
   const retry = async () => {
     setRetrying(true);
-    setPhase("checking");
     await new Promise((r) => setTimeout(r, 1500));
-    await checkOllama();
+    await runDetect();
     setRetrying(false);
   };
 
+  const tierColors = { excellent: COLORS.green, good: "#5B8FB9", basic: COLORS.orange };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 420, paddingTop: 32 }}>
-      <SwordAndShield size={96} animate={phase === "checking"} state={phase === "found" ? "shield" : "idle"} />
+      <SwordAndShield size={96} animate={phase === "scanning"} state={phase === "ready" ? "shield" : "idle"} />
 
-      {phase === "checking" && (
+      {phase === "scanning" && (
         <>
           <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "16px 0 8px" }}>
-            Checking for AI engine<LoadingDots />
+            Checking your setup<LoadingDots />
           </h2>
           <p style={{ fontFamily: "'Georgia', serif", fontSize: 15, color: COLORS.textMuted, textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>
-            Looking for Ollama on your system.
+            Looking for your AI engine and scanning hardware.
           </p>
         </>
       )}
 
-      {phase === "found" && (
+      {phase === "ready" && hardware && (
         <>
           <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.green, margin: "16px 0 8px" }}>
-            AI engine detected!
+            Looking good!
           </h2>
-          <p style={{ fontFamily: "'Georgia', serif", fontSize: 15, color: COLORS.textMuted, textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>
-            Ollama is running. Moving on...
+          <div style={{
+            background: COLORS.orangeFaint, border: `1.5px solid ${COLORS.border}`, borderRadius: 10,
+            padding: "20px 24px", maxWidth: 380, width: "100%", marginTop: 8, textAlign: "center",
+          }}>
+            <div style={{
+              fontFamily: "'Courier New', monospace", fontSize: 16, fontWeight: 700, color: COLORS.text, marginBottom: 8,
+            }}>
+              {hardware.friendlySummary || `${hardware.ram} memory`}
+            </div>
+            <div style={{
+              display: "inline-block", fontFamily: "'Courier New', monospace", fontSize: 11,
+              color: tierColors[hardware.tier] || COLORS.text, background: `${tierColors[hardware.tier] || COLORS.border}18`,
+              padding: "3px 10px", borderRadius: 4, textTransform: "uppercase", letterSpacing: 1, fontWeight: 700,
+            }}>
+              {hardware.tier}
+            </div>
+            <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.textMuted, lineHeight: 1.6, margin: "12px 0 0" }}>
+              {hardware.message}
+            </p>
+          </div>
+          <p style={{ fontFamily: "'Georgia', serif", fontSize: 13, color: COLORS.textMuted, marginTop: 12 }}>
+            Moving on...
           </p>
         </>
       )}
 
-      {phase === "missing" && (
+      {phase === "error" && (
+        <>
+          <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "16px 0 8px" }}>
+            Couldn't detect hardware
+          </h2>
+          <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.red, marginBottom: 16, textAlign: "center", maxWidth: 360 }}>
+            {error}
+          </p>
+          <BtnPrimary onClick={onNext}>Continue Anyway</BtnPrimary>
+        </>
+      )}
+
+      {phase === "ollama-missing" && (
         <>
           <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "16px 0 8px" }}>
             One more thing needed
@@ -321,76 +368,6 @@ function StepOllama({ onNext }) {
             Already installed? Make sure Ollama is running — look for the llama icon in your system tray.
           </p>
         </>
-      )}
-    </div>
-  );
-}
-
-// ============================================================
-// STEP 2: HARDWARE CHECK (real)
-// ============================================================
-function StepHardware({ data, setData, onNext }) {
-  const [phase, setPhase] = useState("scanning");
-  const [hw, setHw] = useState(null);
-  const [error, setError] = useState(null);
-
-  useEffect(() => {
-    API.getHardware()
-      .then((info) => {
-        setHw(info);
-        setData((d) => ({ ...d, hardware: info }));
-        setPhase("done");
-      })
-      .catch((err) => {
-        setError(err.message);
-        setPhase("done");
-      });
-  }, [setData]);
-
-  return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 420, paddingTop: 24 }}>
-      <SwordAndShield size={96} animate={phase === "scanning"} state={phase === "done" ? "shield" : "idle"} />
-      <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "16px 0 8px" }}>
-        {phase === "scanning" ? (<>Checking your hardware<LoadingDots /></>) : error ? "Couldn't detect hardware" : "Hardware looks great!"}
-      </h2>
-
-      {phase === "scanning" && (
-        <p style={{ fontFamily: "'Georgia', serif", fontSize: 15, color: COLORS.textMuted, textAlign: "center", maxWidth: 340, lineHeight: 1.5 }}>
-          Scanning your system to see what AI models you can run.
-        </p>
-      )}
-
-      {phase === "done" && error && (
-        <div style={{ textAlign: "center", maxWidth: 360 }}>
-          <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.red, marginBottom: 16 }}>{error}</p>
-          <BtnPrimary onClick={onNext}>Continue Anyway</BtnPrimary>
-        </div>
-      )}
-
-      {phase === "done" && hw && (
-        <div style={{ width: "100%", maxWidth: 400, marginTop: 12 }}>
-          <div style={{ background: COLORS.orangeFaint, border: `1.5px solid ${COLORS.border}`, borderRadius: 10, padding: "16px 20px", marginBottom: 16 }}>
-            <p style={{ fontFamily: "'Georgia', serif", fontSize: 15, color: COLORS.text, lineHeight: 1.6, margin: 0 }}>
-              {hw.message}
-            </p>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24 }}>
-            {[
-              ["System", hw.os || "—"],
-              ["Processor", (hw.cpu || "—").split("@")[0].trim()],
-              ["Memory", hw.ram || "—"],
-              ["Cores", hw.cores || "—"],
-              ["Platform", hw.platform || "—"],
-              ["Architecture", hw.arch || "—"],
-            ].map(([label, val]) => (
-              <div key={label} style={{ background: COLORS.white, border: `1px solid ${COLORS.border}`, borderRadius: 6, padding: "8px 12px" }}>
-                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 1 }}>{label}</div>
-                <div style={{ fontFamily: "'Courier New', monospace", fontSize: 13, color: COLORS.text, fontWeight: 700, marginTop: 2 }}>{String(val)}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ textAlign: "center" }}><BtnPrimary onClick={onNext}>Continue</BtnPrimary></div>
-        </div>
       )}
     </div>
   );
@@ -496,18 +473,55 @@ function StepAdminProfile({ data, setData, onNext }) {
 // ============================================================
 // STEP 5: FAMILY MEMBERS
 // ============================================================
+// Family shape presets — one tap scaffolds a common household
+const FAMILY_PRESETS = [
+  { id: "just-me", label: "Just Me", icon: "🧑", members: [] },
+  { id: "couple", label: "Couple", icon: "👫", members: [{ name: "Partner", role: "co-admin" }] },
+  {
+    id: "family-4",
+    label: "Family of 4",
+    icon: "👨‍👩‍👧‍👦",
+    members: [
+      { name: "Partner", role: "co-admin" },
+      { name: "Child 1", role: "teen" },
+      { name: "Child 2", role: "child" },
+    ],
+  },
+  {
+    id: "family-6",
+    label: "Family of 6",
+    icon: "👨‍👩‍👧‍👦",
+    members: [
+      { name: "Partner", role: "co-admin" },
+      { name: "Child 1", role: "teen" },
+      { name: "Child 2", role: "teen" },
+      { name: "Child 3", role: "child" },
+      { name: "Child 4", role: "child" },
+    ],
+  },
+];
+
 function StepFamily({ data, setData, onNext }) {
   const [members, setMembers] = useState(data.familyMembers || []);
   const [adding, setAdding] = useState(false);
   const [newName, setNewName] = useState("");
   const [newRole, setNewRole] = useState("teen");
   const [saving, setSaving] = useState(false);
+  const [selectedPreset, setSelectedPreset] = useState(null);
 
   const roles = [
     { id: "co-admin", label: "Co-Admin", desc: "Full access, shares admin privileges" },
     { id: "teen", label: "Teen (13\u201317)", desc: "Moderate guardrails, age-appropriate access" },
     { id: "child", label: "Child (5\u201312)", desc: "Strict guardrails, curated Recipes only" },
   ];
+
+  const applyPreset = (preset) => {
+    setSelectedPreset(preset.id);
+    const presetMembers = preset.members.map((m) => ({ ...m }));
+    setMembers(presetMembers);
+    setData((d) => ({ ...d, familyMembers: presetMembers }));
+    setAdding(false);
+  };
 
   const addMember = () => {
     if (!newName.trim()) return;
@@ -548,8 +562,32 @@ function StepFamily({ data, setData, onNext }) {
       <SwordAndShield size={72} animate={false} state="idle" />
       <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "14px 0 4px" }}>Add your family</h2>
       <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.textMuted, textAlign: "center", maxWidth: 380, lineHeight: 1.5, margin: "0 0 16px" }}>
-        Everyone gets their own profile with the right level of access. You can always add more later.
+        Pick a household shape to get started, then customize the names. You can always add more later.
       </p>
+
+      {/* Family shape presets */}
+      <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", justifyContent: "center", width: "100%", maxWidth: 400 }}>
+        {FAMILY_PRESETS.map((preset) => (
+          <button
+            key={preset.id}
+            onClick={() => applyPreset(preset)}
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
+              padding: "12px 10px", minWidth: 76, flex: "1 1 0",
+              border: `2px solid ${selectedPreset === preset.id ? COLORS.orange : COLORS.border}`,
+              borderRadius: 10,
+              background: selectedPreset === preset.id ? COLORS.orangeFaint : COLORS.white,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+          >
+            <span style={{ fontSize: 22 }}>{preset.icon}</span>
+            <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, fontWeight: 600, color: selectedPreset === preset.id ? COLORS.orange : COLORS.text }}>
+              {preset.label}
+            </span>
+          </button>
+        ))}
+      </div>
 
       <div style={{ width: "100%", maxWidth: 400 }}>
         {/* Admin card */}
@@ -569,7 +607,23 @@ function StepFamily({ data, setData, onNext }) {
               {m.name[0].toUpperCase()}
             </div>
             <div style={{ flex: 1 }}>
-              <div style={{ fontFamily: "'Courier New', monospace", fontSize: 15, fontWeight: 700, color: COLORS.text }}>{m.name}</div>
+              <input
+                value={m.name}
+                onChange={(e) => {
+                  const updated = [...members];
+                  updated[i] = { ...updated[i], name: e.target.value };
+                  setMembers(updated);
+                  setData((d) => ({ ...d, familyMembers: updated }));
+                }}
+                style={{
+                  fontFamily: "'Courier New', monospace", fontSize: 15, fontWeight: 700, color: COLORS.text,
+                  border: "none", borderBottom: `1px solid transparent`, background: "transparent",
+                  outline: "none", width: "100%", padding: 0,
+                }}
+                onFocus={(e) => (e.target.style.borderBottomColor = COLORS.orange)}
+                onBlur={(e) => (e.target.style.borderBottomColor = "transparent")}
+                placeholder="Name"
+              />
               <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: roleColor(m.role), textTransform: "uppercase", letterSpacing: 1 }}>{roleLabel(m.role)}</div>
             </div>
             <button onClick={() => removeMember(i)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18, color: COLORS.textMuted, padding: 4 }}>&times;</button>
@@ -615,7 +669,7 @@ function StepFamily({ data, setData, onNext }) {
 }
 
 // ============================================================
-// STEP 6: AI MODELS (real Ollama pulls + smart recommendations)
+// STEP 5: AI MODELS (conversational download with real progress)
 // ============================================================
 const OLLAMA_MODELS = {
   general: { ollama: "llama3.1:8b", display: "Llama 3.1 8B", size: "4.7 GB" },
@@ -624,21 +678,44 @@ const OLLAMA_MODELS = {
   creative: { ollama: "llama3.1:8b", display: "Llama 3.1 8B (Creative)", size: "4.7 GB" },
 };
 
+const DOWNLOAD_PHASES = [
+  { maxPercent: 10, heading: "Waking up the brain...", subtext: "Connecting to the model library" },
+  { maxPercent: 40, heading: "Downloading knowledge...", subtext: "This is the big part" },
+  { maxPercent: 70, heading: "More than halfway there...", subtext: "Your AI is taking shape" },
+  { maxPercent: 90, heading: "Putting the finishing touches on...", subtext: "Almost ready to think" },
+  { maxPercent: 99, heading: "Nearly ready...", subtext: "Just a moment more" },
+  { maxPercent: 100, heading: "All done!", subtext: "Your AI brain is installed" },
+];
+
+function getDownloadPhase(percent) {
+  return DOWNLOAD_PHASES.find((p) => percent <= p.maxPercent) || DOWNLOAD_PHASES[DOWNLOAD_PHASES.length - 1];
+}
+
+function formatTimeRemaining(seconds) {
+  if (seconds == null || seconds <= 0) return null;
+  if (seconds < 15) return "Almost there...";
+  if (seconds < 90) return "Less than a minute remaining";
+  const mins = Math.ceil(seconds / 60);
+  return `About ${mins} minute${mins !== 1 ? "s" : ""} remaining`;
+}
+
 function StepModels({ data, setData, onNext }) {
   const [recommendation, setRecommendation] = useState(null);
-  const [installing, setInstalling] = useState(null);
+  const [installing, setInstalling] = useState(null); // category being installed
   const [installed, setInstalled] = useState({});
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(0); // 0-1
+  const [eta, setEta] = useState(null); // seconds remaining
   const [error, setError] = useState(null);
   const [allDone, setAllDone] = useState(false);
-  const isLockdown = data.envMode === "lockdown";
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [selectedOptional, setSelectedOptional] = useState({});
+  const wsRef = useRef(null);
 
-  // Fetch recommendation based on family profiles
+  // Fetch recommendation
   useEffect(() => {
     API.getRecommendation()
       .then(setRecommendation)
       .catch(() => {
-        // Fallback recommendation
         setRecommendation({
           primary: OLLAMA_MODELS.general,
           optional: [],
@@ -648,45 +725,52 @@ function StepModels({ data, setData, onNext }) {
       });
   }, []);
 
-  const [selectedPrimary, setSelectedPrimary] = useState(true);
-  const [selectedOptional, setSelectedOptional] = useState({});
+  // WebSocket for real progress
+  useEffect(() => {
+    const ws = API.connectWS((msg) => {
+      if (msg.type === "model:progress" && msg.percent != null) {
+        setProgress(msg.percent / 100);
+        setEta(msg.estimatedSecondsRemaining ?? null);
+      }
+      if (msg.type === "model:complete") {
+        setProgress(1);
+        setEta(null);
+      }
+    });
+    wsRef.current = ws;
+    return () => { if (ws) ws.close(); };
+  }, []);
 
-  const getInstallQueue = () => {
-    if (!recommendation) return [];
+  const startInstall = async () => {
+    if (!recommendation) return;
     const queue = [];
-    if (selectedPrimary) {
-      queue.push({ ...recommendation.primary, category: recommendation.primary.category || "general" });
-    }
+    queue.push({ ...recommendation.primary, category: recommendation.primary.category || "general" });
     for (const opt of recommendation.optional) {
       if (selectedOptional[opt.category]) queue.push(opt);
     }
-    return queue;
-  };
-
-  const startInstall = async () => {
-    const queue = getInstallQueue().filter((m) => !installed[m.category]);
-    if (queue.length === 0) return;
 
     for (const model of queue) {
+      if (installed[model.category]) continue;
       setInstalling(model.category);
       setProgress(0);
+      setEta(null);
       setError(null);
 
-      // Fake progress while waiting (real progress comes via WS but this gives immediate feedback)
-      const fakeTimer = setInterval(() => {
-        setProgress((p) => Math.min(p + 0.005 + Math.random() * 0.01, 0.85));
-      }, 500);
+      // Smooth interpolation fallback between real WS updates
+      const smoothTimer = setInterval(() => {
+        setProgress((p) => Math.min(p + 0.002, 0.95));
+      }, 800);
 
       try {
         const ollamaName = model.ollama || OLLAMA_MODELS[model.category]?.ollama;
         const displayName = model.display || OLLAMA_MODELS[model.category]?.display;
         await API.installModel(ollamaName, displayName, model.category);
-        clearInterval(fakeTimer);
+        clearInterval(smoothTimer);
         setProgress(1);
         setInstalled((prev) => ({ ...prev, [model.category]: true }));
-        await new Promise((r) => setTimeout(r, 500));
+        await new Promise((r) => setTimeout(r, 600));
       } catch (err) {
-        clearInterval(fakeTimer);
+        clearInterval(smoothTimer);
         setError(`Failed to install ${model.display}: ${err.message}`);
         break;
       }
@@ -694,12 +778,13 @@ function StepModels({ data, setData, onNext }) {
 
     setInstalling(null);
     const finalInstalled = { ...installed };
-    getInstallQueue().forEach((m) => { finalInstalled[m.category] = true; });
+    queue.forEach((m) => { finalInstalled[m.category] = true; });
     setInstalled(finalInstalled);
     setData((d) => ({ ...d, installedModels: finalInstalled }));
     setAllDone(true);
   };
 
+  // Loading state
   if (!recommendation) {
     return (
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 420, paddingTop: 60 }}>
@@ -711,127 +796,172 @@ function StepModels({ data, setData, onNext }) {
     );
   }
 
-  const queue = getInstallQueue();
-  const pendingCount = queue.filter((m) => !installed[m.category]).length;
+  const percent = Math.round(progress * 100);
+  const phase = getDownloadPhase(percent);
+  const tierNote = data.hardware?.tier === "basic"
+    ? "We picked a compact model that works great on your machine."
+    : null;
 
+  // ── DOWNLOADING STATE ──
+  if (installing) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 420, paddingTop: 32 }}>
+        <SwordAndShield size={96} animate state="shield" />
+        <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "16px 0 4px" }}>
+          {phase.heading}
+        </h2>
+        <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.textMuted, textAlign: "center", maxWidth: 360, lineHeight: 1.5, margin: "0 0 24px" }}>
+          {phase.subtext}
+        </p>
+
+        <div style={{ width: "100%", maxWidth: 360 }}>
+          <div style={{ width: "100%", height: 8, background: COLORS.border, borderRadius: 4, overflow: "hidden" }}>
+            <div style={{
+              width: `${percent}%`, height: "100%",
+              background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.orangeLight})`,
+              borderRadius: 4, transition: "width 0.4s ease",
+            }} />
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 8 }}>
+            <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted }}>
+              {formatTimeRemaining(eta) || "Estimating time..."}
+            </span>
+            <span style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted, fontWeight: 700 }}>
+              {percent}%
+            </span>
+          </div>
+        </div>
+
+        {error && (
+          <p style={{ fontFamily: "'Courier New', monospace", fontSize: 13, color: COLORS.red, marginTop: 16, textAlign: "center" }}>{error}</p>
+        )}
+      </div>
+    );
+  }
+
+  // ── COMPLETE STATE ──
+  if (allDone) {
+    const modelCount = Object.keys(installed).length;
+    return (
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 420, paddingTop: 32 }}>
+        <SwordAndShield size={96} animate state="shield" />
+        <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.green, margin: "16px 0 4px" }}>
+          Your AI is ready!
+        </h2>
+        <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.textMuted, textAlign: "center", maxWidth: 360, lineHeight: 1.5, margin: "0 0 24px" }}>
+          Installed {modelCount} model{modelCount !== 1 ? "s" : ""}. You can always add more from settings.
+        </p>
+        <BtnPrimary onClick={onNext}>Continue</BtnPrimary>
+      </div>
+    );
+  }
+
+  // ── PRE-INSTALL STATE (recommendation view) ──
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center", minHeight: 420, paddingTop: 24 }}>
-      <SwordAndShield size={72} animate={!!installing} state={installing ? "shield" : allDone ? "shield" : "idle"} />
+      <SwordAndShield size={72} animate={false} state="idle" />
       <h2 style={{ fontFamily: "'Courier New', monospace", fontSize: 22, color: COLORS.text, margin: "14px 0 4px" }}>
-        {allDone ? "Models installed!" : installing ? "Installing..." : recommendation.setupLabel}
+        {recommendation.setupLabel}
       </h2>
       <p style={{ fontFamily: "'Georgia', serif", fontSize: 14, color: COLORS.textMuted, textAlign: "center", maxWidth: 380, lineHeight: 1.5, margin: "0 0 16px" }}>
-        {allDone ? "Your AI is ready. You can always add more from the dashboard."
-          : installing ? `Setting up ${OLLAMA_MODELS[installing]?.display || installing}... This may take a few minutes.`
-            : recommendation.description}
+        {recommendation.description}
       </p>
 
-      <div style={{ width: "100%", maxWidth: 420, display: "flex", flexDirection: "column", gap: 8 }}>
-        {/* Primary recommendation */}
-        <ModelCard
-          label="Recommended"
+      <div style={{ width: "100%", maxWidth: 400 }}>
+        {/* Primary model — info card, no checkbox */}
+        <ModelInfoCard
           name={recommendation.primary.display || recommendation.primary.ollama}
           size={recommendation.primary.size || OLLAMA_MODELS[recommendation.primary.category]?.size}
           reason={recommendation.primary.reason || "Handles everyday tasks, writing, and questions well"}
-          selected={selectedPrimary}
-          onToggle={() => !installing && setSelectedPrimary(!selectedPrimary)}
-          isInstalling={installing === (recommendation.primary.category || "general")}
-          isDone={installed[recommendation.primary.category || "general"]}
-          progress={installing === (recommendation.primary.category || "general") ? progress : 0}
-          disabled={!!installing}
         />
 
-        {/* Optional recommendations */}
-        {recommendation.optional.map((opt) => (
-          <ModelCard
-            key={opt.category}
-            label="Optional"
-            name={opt.display || opt.ollama}
-            size={opt.size || OLLAMA_MODELS[opt.category]?.size}
-            reason={opt.reason}
-            selected={!!selectedOptional[opt.category]}
-            onToggle={() => !installing && setSelectedOptional((s) => ({ ...s, [opt.category]: !s[opt.category] }))}
-            isInstalling={installing === opt.category}
-            isDone={installed[opt.category]}
-            progress={installing === opt.category ? progress : 0}
-            disabled={!!installing}
-          />
-        ))}
+        {tierNote && (
+          <p style={{ fontFamily: "'Georgia', serif", fontSize: 12, color: COLORS.textMuted, textAlign: "center", margin: "8px 0 0", fontStyle: "italic" }}>
+            {tierNote}
+          </p>
+        )}
+
+        {/* Advanced options (optional models) */}
+        {recommendation.optional.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <button onClick={() => setShowAdvanced(!showAdvanced)} style={{
+              background: "none", border: "none", cursor: "pointer", fontFamily: "'Courier New', monospace",
+              fontSize: 12, color: COLORS.textMuted, display: "flex", alignItems: "center", gap: 6, padding: 0,
+            }}>
+              <span style={{ transform: showAdvanced ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.2s", display: "inline-block" }}>{"\u25B6"}</span>
+              Advanced Options ({recommendation.optional.length} more model{recommendation.optional.length !== 1 ? "s" : ""})
+            </button>
+
+            {showAdvanced && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 8 }}>
+                {recommendation.optional.map((opt) => (
+                  <button key={opt.category} onClick={() => setSelectedOptional((s) => ({ ...s, [opt.category]: !s[opt.category] }))} style={{
+                    display: "flex", alignItems: "flex-start", gap: 12, width: "100%",
+                    background: selectedOptional[opt.category] ? COLORS.orangeFaint : COLORS.white,
+                    border: `2px solid ${selectedOptional[opt.category] ? COLORS.orange : COLORS.border}`,
+                    borderRadius: 10, padding: "12px 14px", cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                  }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontFamily: "'Courier New', monospace", fontSize: 14, fontWeight: 700, color: selectedOptional[opt.category] ? COLORS.orange : COLORS.text }}>
+                          {opt.display || opt.ollama}
+                        </span>
+                        <span style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: COLORS.textMuted, background: COLORS.orangeFaint, padding: "2px 6px", borderRadius: 3, textTransform: "uppercase", letterSpacing: 1 }}>Optional</span>
+                      </div>
+                      <div style={{ fontFamily: "'Georgia', serif", fontSize: 12, color: COLORS.textMuted, marginTop: 4, lineHeight: 1.4 }}>{opt.reason}</div>
+                      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted, marginTop: 3 }}>{opt.size}</div>
+                    </div>
+                    <div style={{
+                      width: 20, height: 20, borderRadius: 4, flexShrink: 0, marginTop: 2,
+                      border: `2px solid ${selectedOptional[opt.category] ? COLORS.orange : COLORS.border}`,
+                      background: selectedOptional[opt.category] ? COLORS.orange : "transparent",
+                      display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
+                    }}>
+                      {selectedOptional[opt.category] && <span style={{ color: "white", fontSize: 12, lineHeight: 1 }}>{"\u2713"}</span>}
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {error && (
         <p style={{ fontFamily: "'Courier New', monospace", fontSize: 13, color: COLORS.red, marginTop: 12, textAlign: "center" }}>{error}</p>
       )}
 
-      <div style={{ marginTop: 20, textAlign: "center" }}>
-        {allDone ? (
-          <BtnPrimary onClick={onNext}>Continue</BtnPrimary>
-        ) : installing ? (
-          <p style={{ fontFamily: "'Georgia', serif", fontSize: 13, color: COLORS.textMuted, fontStyle: "italic" }}>
-            {isLockdown ? "Preparing sideload packages" : "Downloading from Ollama"}<LoadingDots />
-          </p>
-        ) : (
-          <div style={{ display: "flex", gap: 10, justifyContent: "center" }}>
-            <BtnPrimary onClick={startInstall} disabled={pendingCount === 0}>
-              Install{pendingCount > 0 ? ` (${pendingCount})` : ""}
-            </BtnPrimary>
-            {queue.length === 0 && (
-              <button style={{ ...secondaryBtn, fontSize: 13, padding: "10px 20px" }} onClick={onNext}>Skip for Now</button>
-            )}
-          </div>
-        )}
+      <div style={{ marginTop: 24, display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+        <BtnPrimary onClick={startInstall}>Install Recommended</BtnPrimary>
+        <button onClick={onNext} style={{
+          background: "none", border: "none", cursor: "pointer", fontFamily: "'Courier New', monospace",
+          fontSize: 12, color: COLORS.textMuted, textDecoration: "underline", padding: 4,
+        }}>
+          Skip for now
+        </button>
       </div>
     </div>
   );
 }
 
-function ModelCard({ label, name, size, reason, selected, onToggle, isInstalling, isDone, progress, disabled }) {
+function ModelInfoCard({ name, size, reason }) {
   return (
-    <div>
-      <button onClick={onToggle} disabled={disabled} style={{
-        display: "flex", alignItems: "flex-start", gap: 12, width: "100%",
-        background: isDone ? `${COLORS.green}10` : selected ? COLORS.orangeFaint : COLORS.white,
-        border: `2px solid ${isDone ? COLORS.green : selected ? COLORS.orange : COLORS.border}`,
-        borderRadius: isInstalling ? "10px 10px 0 0" : 10,
-        padding: "12px 14px", cursor: disabled ? "default" : "pointer", textAlign: "left",
-        transition: "all 0.15s", opacity: disabled && !isInstalling && !isDone ? 0.5 : 1,
-      }}>
-        <div style={{ flex: 1 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontFamily: "'Courier New', monospace", fontSize: 15, fontWeight: 700, color: isDone ? COLORS.green : selected ? COLORS.orange : COLORS.text }}>{name}</span>
-            <span style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: COLORS.textMuted, background: COLORS.orangeFaint, padding: "2px 6px", borderRadius: 3, textTransform: "uppercase", letterSpacing: 1 }}>{label}</span>
-            {isDone && <span style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: COLORS.green, background: `${COLORS.green}18`, padding: "2px 6px", borderRadius: 4, textTransform: "uppercase", letterSpacing: 1 }}>Installed</span>}
-          </div>
-          <div style={{ fontFamily: "'Georgia', serif", fontSize: 13, color: COLORS.textMuted, marginTop: 4, lineHeight: 1.4 }}>{reason}</div>
-          <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted, marginTop: 4 }}>{size}</div>
-        </div>
-        {!disabled && (
-          <div style={{
-            width: 22, height: 22, borderRadius: 4, flexShrink: 0, marginTop: 4,
-            border: `2px solid ${selected ? COLORS.orange : COLORS.border}`,
-            background: selected ? COLORS.orange : "transparent",
-            display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s",
-          }}>
-            {selected && <span style={{ color: "white", fontSize: 14, lineHeight: 1 }}>{"\u2713"}</span>}
-          </div>
-        )}
-      </button>
-      {isInstalling && (
-        <div style={{ background: COLORS.white, border: `2px solid ${COLORS.orange}`, borderTop: "none", borderRadius: "0 0 10px 10px", padding: "10px 14px" }}>
-          <div style={{ width: "100%", height: 6, background: COLORS.border, borderRadius: 3, overflow: "hidden" }}>
-            <div style={{ width: `${progress * 100}%`, height: "100%", background: `linear-gradient(90deg, ${COLORS.orange}, ${COLORS.orangeLight})`, borderRadius: 3, transition: "width 0.3s ease" }} />
-          </div>
-          <div style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: COLORS.textMuted, marginTop: 4, textAlign: "right" }}>
-            {Math.round(progress * 100)}%
-          </div>
-        </div>
-      )}
+    <div style={{
+      background: COLORS.orangeFaint, border: `2px solid ${COLORS.orange}`, borderRadius: 10,
+      padding: "16px 18px", textAlign: "left",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+        <span style={{ fontFamily: "'Courier New', monospace", fontSize: 16, fontWeight: 700, color: COLORS.orange }}>{name}</span>
+        <span style={{ fontFamily: "'Courier New', monospace", fontSize: 10, color: COLORS.green, background: `${COLORS.green}18`, padding: "2px 8px", borderRadius: 3, textTransform: "uppercase", letterSpacing: 1 }}>Recommended</span>
+      </div>
+      <div style={{ fontFamily: "'Georgia', serif", fontSize: 13, color: COLORS.textMuted, lineHeight: 1.4 }}>{reason}</div>
+      <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted, marginTop: 6 }}>{size}</div>
     </div>
   );
 }
 
 // ============================================================
-// STEP 7: READY
+// STEP 6: READY
 // ============================================================
 function StepReady({ data, onComplete }) {
   const [show, setShow] = useState(false);
@@ -916,9 +1046,10 @@ export default function KinwardWizard({ onComplete }) {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      minHeight: "100dvh", // dvh accounts for mobile browser toolbars; falls back to vh in older browsers
       background: `linear-gradient(180deg, ${COLORS.cream} 0%, ${COLORS.creamLight} 50%, ${COLORS.white} 100%)`,
       display: "flex", flexDirection: "column", alignItems: "center", fontFamily: "'Georgia', serif",
+      overflowY: "auto", WebkitOverflowScrolling: "touch",
     }}>
       <div style={{ width: "100%", maxWidth: 480, padding: "0 20px", boxSizing: "border-box" }}>
         {step > 0 && step < STEPS.length - 1 && (
@@ -943,13 +1074,12 @@ export default function KinwardWizard({ onComplete }) {
 
         <div style={{ paddingBottom: 40 }}>
           {step === 0 && <StepWelcome onNext={next} />}
-          {step === 1 && <StepOllama onNext={next} />}
-          {step === 2 && <StepHardware data={data} setData={setData} onNext={next} />}
-          {step === 3 && <StepEnvironment data={data} setData={setData} onNext={next} />}
-          {step === 4 && <StepAdminProfile data={data} setData={setData} onNext={next} />}
-          {step === 5 && <StepFamily data={data} setData={setData} onNext={next} />}
-          {step === 6 && <StepModels data={data} setData={setData} onNext={next} />}
-          {step === 7 && <StepReady data={data} onComplete={onComplete} />}
+          {step === 1 && <StepAutoDetect data={data} setData={setData} onNext={next} />}
+          {step === 2 && <StepEnvironment data={data} setData={setData} onNext={next} />}
+          {step === 3 && <StepAdminProfile data={data} setData={setData} onNext={next} />}
+          {step === 4 && <StepFamily data={data} setData={setData} onNext={next} />}
+          {step === 5 && <StepModels data={data} setData={setData} onNext={next} />}
+          {step === 6 && <StepReady data={data} onComplete={onComplete} />}
         </div>
       </div>
     </div>
