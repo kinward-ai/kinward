@@ -132,7 +132,7 @@ Choose a preset that matches your household, then customize names and ages.
 
   Family members:
   ┌────────────────────────────────────────────────────┐
-  │  Alex (Admin)    ·  Sarah (Co-Admin)               │
+  │  Jamie (Admin)   ·  Taylor (Co-Admin)               │
   │  Emma (Teen)     ·  Jake (Child)                   │
   └────────────────────────────────────────────────────┘
 

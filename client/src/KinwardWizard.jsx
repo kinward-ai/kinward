@@ -447,7 +447,7 @@ function StepAdminProfile({ data, setData, onNext }) {
       </p>
       <div style={{ width: "100%", maxWidth: 360 }}>
         <label style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4, display: "block" }}>Your Name</label>
-        <input style={inputStyle} value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="e.g. Alex"
+        <input style={inputStyle} value={name} onChange={(e) => { setName(e.target.value); setError(""); }} placeholder="e.g. Jamie"
           onFocus={(e) => (e.target.style.borderColor = COLORS.orange)} onBlur={(e) => (e.target.style.borderColor = COLORS.border)} />
 
         <label style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: COLORS.textMuted, textTransform: "uppercase", letterSpacing: 1, marginBottom: 4, marginTop: 16, display: "block" }}>4-Digit PIN</label>
