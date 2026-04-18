@@ -185,24 +185,33 @@
     <div class="phase-header">
       <div class="phase-num">1</div>
       <div class="phase-info">
-        <div class="phase-title">Download Kinward</div>
-        <div class="phase-time">~30 seconds</div>
+        <div class="phase-title">Install Prerequisites</div>
+        <div class="phase-time">~2 minutes</div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-top">
-        <div class="card-icon">&#128229;</div>
-        <div class="card-label">Get the code <span class="badge badge-you">You</span></div>
+        <div class="card-icon">&#129433;</div>
+        <div class="card-label">Install Ollama <span class="badge badge-you">You</span></div>
       </div>
       <div class="card-body">
-        <p><strong>Option A — If you have Git:</strong></p>
+        <p>Download Ollama from <a href="https://ollama.com" style="color: var(--orange);">ollama.com</a>. On Mac, open the <strong>.dmg</strong> and drag it to Applications. On Windows, run the installer. Once installed, Ollama runs quietly in your menu bar — no configuration needed.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-top">
+        <div class="card-icon">&#11208;</div>
+        <div class="card-label">Install Node.js <span class="badge badge-you">You</span></div>
+      </div>
+      <div class="card-body">
+        <p>If you don't already have it, download Node.js LTS from <a href="https://nodejs.org" style="color: var(--orange);">nodejs.org</a>. Run the installer with default settings.</p>
+        <p>Already have it? Check with:</p>
         <div class="terminal">
-          <span class="prompt">&gt;</span> git clone https://github.com/kinward-ai/kinward<br>
-          <span class="prompt">&gt;</span> cd kinward
+          <span class="prompt">&gt;</span> node --version<br>
+          <span class="output">v22.15.0</span>
         </div>
-        <p><strong>Option B — No Git? No problem:</strong></p>
-        <p>Go to <a href="https://github.com/kinward-ai/kinward" style="color: var(--orange);">github.com/kinward-ai/kinward</a> → click the green <strong>Code</strong> button → <strong>Download ZIP</strong>. Unzip it anywhere you want.</p>
       </div>
     </div>
   </div>
@@ -216,56 +225,29 @@
     <div class="phase-header">
       <div class="phase-num">2</div>
       <div class="phase-info">
-        <div class="phase-title">Run the Start Script</div>
-        <div class="phase-time">~1–3 minutes (first time only)</div>
+        <div class="phase-title">Download &amp; Launch Kinward</div>
+        <div class="phase-time">~1 minute</div>
       </div>
     </div>
 
     <div class="card">
       <div class="card-top">
-        <div class="card-icon">&#9654;&#65039;</div>
-        <div class="card-label">One command <span class="badge badge-you">You</span></div>
+        <div class="card-icon">&#128229;</div>
+        <div class="card-label">Get the code and launch <span class="badge badge-you">You</span></div>
       </div>
       <div class="card-body">
-        <p>Open the Kinward folder and double-click <strong>start.bat</strong> (Windows) or run <strong>./start.sh</strong> (Mac/Linux) in Terminal.</p>
-        <p>That's it. The script does everything else.</p>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-top">
-        <div class="card-icon">&#129520;</div>
-        <div class="card-label">Auto-installs what's missing <span class="badge badge-auto">Automatic</span></div>
-      </div>
-      <div class="card-body">
-        <p>The script checks for everything Kinward needs. If something is missing, it tells you and asks to install it. Just type <strong>Y</strong> for yes.</p>
+        <p>Clone or download from <a href="https://github.com/kinward-ai/kinward" style="color: var(--orange);">github.com/kinward-ai/kinward</a>, install dependencies, and launch the Electron app:</p>
         <div class="terminal">
-          <span class="output">  [1/4] Node.js not found.</span><br>
+          <span class="prompt">&gt;</span> git clone https://github.com/kinward-ai/kinward<br>
+          <span class="prompt">&gt;</span> cd kinward<br>
+          <span class="prompt">&gt;</span> npm install<br>
+          <span class="prompt">&gt;</span> npm run electron:dev<br>
           <br>
-          <span class="dim">         Kinward needs Node.js to run.</span><br>
-          <br>
-          <span class="ask">         Install Node.js automatically? (Y/N):</span> <span style="color: var(--cream-light);">Y</span><br>
-          <br>
-          <span class="dim">         Installing Node.js via winget...</span><br>
-          <span class="output">         Node.js installed!</span><br>
-          <br>
-          <span class="output">  [2/4] Ollama not found.</span><br>
-          <br>
-          <span class="dim">         Kinward uses Ollama to run AI models locally.</span><br>
-          <br>
-          <span class="ask">         Install Ollama automatically? (Y/N):</span> <span style="color: var(--cream-light);">Y</span><br>
-          <br>
-          <span class="dim">         Installing Ollama via winget...</span><br>
-          <span class="output">         Ollama installed!</span><br>
-          <br>
-          <span class="output">  [3/4] Installing dependencies...</span><br>
-          <span class="output">  [4/4] Launching Kinward...</span><br>
-          <br>
-          <span class="output">    Kinward is starting up!</span><br>
-          <span class="output">    The browser will open automatically.</span>
+          <span class="output">  Kinward is starting up!</span><br>
+          <span class="output">  Look for the &#128737;&#65039; shield icon in your system tray</span>
         </div>
         <div class="tip">
-          <strong>Tip:</strong> On the first run, installing dependencies takes about a minute. After that, startup takes just a few seconds.
+          <strong>Tip:</strong> First launch takes 30–60 seconds to compile native modules. After that, startup is fast.
         </div>
       </div>
     </div>
@@ -288,46 +270,36 @@
     <div class="card">
       <div class="card-top">
         <div class="card-icon">&#128302;</div>
-        <div class="card-label">The wizard walks you through everything <span class="badge badge-you">You</span></div>
+        <div class="card-label">The wizard walks you through 4 quick steps <span class="badge badge-you">You</span></div>
       </div>
       <div class="card-body">
-        <p>Your browser opens automatically. The setup wizard guides you through 6 quick steps:</p>
+        <p>The Kinward app window opens automatically. The setup wizard guides you through everything:</p>
 
         <div class="wizard-grid">
           <div class="wizard-step">
             <div class="ws-num">STEP 1</div>
-            <div class="ws-name">Welcome</div>
-            <div class="ws-desc">Quick intro, one button to start</div>
+            <div class="ws-name">Name Your AI</div>
+            <div class="ws-desc">Give your family AI a name and tagline</div>
           </div>
           <div class="wizard-step">
             <div class="ws-num">STEP 2</div>
-            <div class="ws-name">System Check</div>
-            <div class="ws-desc">Auto-detects your hardware</div>
+            <div class="ws-name">Family Profiles</div>
+            <div class="ws-desc">Pick a preset (Just Me, Couple, Family of 4) and customize</div>
           </div>
           <div class="wizard-step">
             <div class="ws-num">STEP 3</div>
-            <div class="ws-name">Privacy Mode</div>
-            <div class="ws-desc">Choose Open, Secured, or Lockdown</div>
+            <div class="ws-name">Install a Model</div>
+            <div class="ws-desc">Kinward recommends the best model for your hardware</div>
           </div>
           <div class="wizard-step">
             <div class="ws-num">STEP 4</div>
-            <div class="ws-name">Your Profile</div>
-            <div class="ws-desc">Create your name and 4-digit PIN</div>
-          </div>
-          <div class="wizard-step">
-            <div class="ws-num">STEP 5</div>
-            <div class="ws-name">Family</div>
-            <div class="ws-desc">Add family members (or skip)</div>
-          </div>
-          <div class="wizard-step">
-            <div class="ws-num">STEP 6</div>
-            <div class="ws-name">AI Models</div>
-            <div class="ws-desc">Pick and install your AI brain</div>
+            <div class="ws-name">You're Ready</div>
+            <div class="ws-desc">Start chatting with your family's AI</div>
           </div>
         </div>
 
         <div class="tip">
-          <strong>About model downloads:</strong> In Step 6, Kinward recommends the best AI model for your hardware. Downloading a model is a one-time thing — it ranges from 2GB to 5GB depending on the model. This is usually the longest part of setup. After that, everything runs locally with no internet needed.
+          <strong>About model downloads:</strong> In Step 3, Kinward recommends an AI model based on your hardware. Downloading a model is a one-time thing — Gemma 4 9B is about 5.5 GB, Mistral Small 24B is about 14 GB, and models range from 2.5 GB to 17 GB depending on what you choose. This is usually the longest part of setup. After that, everything runs locally with no internet needed.
         </div>
       </div>
     </div>
@@ -353,7 +325,7 @@
         <div class="card-label">Your family's AI is live <span class="badge badge-auto">Ready</span></div>
       </div>
       <div class="card-body">
-        <p>Tap your name, enter your PIN, pick a conversation mode, and start talking. Everything stays on your machine — no cloud, no accounts, no data leaving your home.</p>
+        <p>Pick a conversation mode and start talking. Everything stays on your machine — no cloud, no accounts, no data leaving your home.</p>
       </div>
     </div>
 
@@ -363,7 +335,7 @@
         <div class="card-label">Connect from any device</div>
       </div>
       <div class="card-body">
-        <p>Everyone in the house can connect from their phone, tablet, or laptop. Just open a browser and go to the address shown in the terminal (something like <strong>http://192.168.1.50:5173</strong>). On your phone, tap "Add to Home Screen" for an app-like experience.</p>
+        <p>Everyone in the house can connect from their phone, tablet, or laptop. Just open a browser and go to the address shown in the app (something like <strong>http://192.168.x.x:3210</strong>). On your phone, tap "Add to Home Screen" for an app-like experience.</p>
       </div>
     </div>
 
@@ -375,7 +347,7 @@
       <div class="card-body">
         <p><strong>Upload a document</strong> — drag a PDF, text file, or photo into the chat. Ask questions about it. Key facts are remembered automatically.</p>
         <p><strong>Teach it about your family</strong> — mention allergies, school schedules, pet names. It extracts and stores these facts for future conversations.</p>
-        <p><strong>Name your AI</strong> — go to Settings and give your assistant a custom name, personality, and tagline.</p>
+        <p><strong>Manage your models</strong> — go to <strong>Settings &rarr; AI Models</strong> to install, switch, or remove models. Try Gemma 4 9B, Gemma 4 27B, Mistral Small 24B, Llama 3.1 8B, and more.</p>
         <p><strong>Try different modes</strong> — switch between General, Kids, Research, and Creative for different conversation styles.</p>
       </div>
     </div>
@@ -397,8 +369,7 @@
         <div class="card-label">How to stop Kinward</div>
       </div>
       <div class="card-body">
-        <p><strong>Option A:</strong> Close the terminal/PowerShell window that's running Kinward.</p>
-        <p><strong>Option B:</strong> Double-click <strong>stop.bat</strong> (Windows) or run <strong>./stop.sh</strong> (Mac/Linux).</p>
+        <p>Click the &#128737;&#65039; shield icon in your system tray and select <strong>Quit</strong>. Or simply close the Kinward window.</p>
       </div>
     </div>
 
@@ -408,9 +379,9 @@
         <div class="card-label">How to restart Kinward</div>
       </div>
       <div class="card-body">
-        <p>Just double-click <strong>start.bat</strong> (or run <strong>./start.sh</strong>) again. Your profiles, conversations, and memories are all saved — nothing is lost. Startup is fast after the first time (a few seconds).</p>
+        <p>Run <code style="font-family: 'DM Mono', monospace; font-size: 13px; background: var(--cream-deep); padding: 2px 6px; border-radius: 4px;">npm run electron:dev</code> again from the Kinward folder. All your profiles, conversations, and memories are saved — nothing is lost.</p>
         <div class="tip">
-          <strong>Important:</strong> Kinward only runs while the terminal window is open. If you restart your computer, you'll need to run start.bat again. Your data is always safe — it's stored in a local database file that persists between restarts.
+          <strong>Tip:</strong> Kinward stores all data in your Application Support folder — nothing is lost between sessions. Ollama is auto-detected and managed for you.
         </div>
       </div>
     </div>
@@ -428,11 +399,10 @@
 
     <div class="card">
       <div class="card-body">
-        <p><strong>"The browser didn't open"</strong> — Open your browser manually and go to <a href="http://localhost:5173" style="color: var(--orange);">http://localhost:5173</a></p>
-        <p><strong>"The page says it can't connect"</strong> — Kinward probably isn't running. Double-click <strong>start.bat</strong> to start it up again.</p>
-        <p><strong>"npm install failed"</strong> — The script will tell you what's missing and offer to install it. If it still fails, check your internet connection and try again.</p>
-        <p><strong>"It says Ollama isn't running"</strong> — Open a new terminal and run <code style="font-family: 'DM Mono', monospace; font-size: 13px; background: var(--cream-deep); padding: 2px 6px; border-radius: 4px;">ollama serve</code>, then refresh the page.</p>
-        <p><strong>"The AI is slow"</strong> — Smaller models run faster. In Settings, try switching to a lighter model. A GPU makes a big difference — even a budget one.</p>
+        <p><strong>"The app window is blank"</strong> — Wait 10–15 seconds for the server to start. You can also check the &#128737;&#65039; shield icon in your system tray to confirm Kinward is running.</p>
+        <p><strong>"Lumina is sleeping"</strong> — Make sure Ollama is running. Look for the llama icon in your menu bar. If it's not there, open Ollama from your Applications folder.</p>
+        <p><strong>"npm install failed"</strong> — Make sure you have Node.js 20 or 22 LTS installed. Kinward does not support Node.js v23 or newer.</p>
+        <p><strong>"Port 3210 is already in use"</strong> — Kinward tries to free the port automatically. If it can't, run: <code style="font-family: 'DM Mono', monospace; font-size: 13px; background: var(--cream-deep); padding: 2px 6px; border-radius: 4px;">lsof -ti:3210 | xargs kill -9</code></p>
         <p><strong>Found a bug?</strong> — Email <a href="mailto:hello@kinward.ai" style="color: var(--orange);">hello@kinward.ai</a> or open an issue on <a href="https://github.com/kinward-ai/kinward/issues" style="color: var(--orange);">GitHub</a>.</p>
       </div>
     </div>

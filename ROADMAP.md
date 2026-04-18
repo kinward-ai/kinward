@@ -2,31 +2,39 @@
 
 ## Phase 1 — First Impressions (On-Ramp & Polish)
 *Goal: A non-technical person can install and be chatting in under 5 minutes.*
+*Status: ✅ Complete — shipped April 2026*
 
-### 1.1 Auto-Detect Hardware on Wizard Launch
+### 1.1 Auto-Detect Hardware on Wizard Launch ✅
 - Scan CPU, GPU, RAM automatically via Ollama system info + Node `os` module
 - Skip the technical questions — show a plain-English summary: "Your Mac can handle a mid-size brain. We recommend installing Llama 3.1 8B."
 - Single "Install Recommended" button instead of model picker
 
-### 1.2 Friendly Model Download Experience
+### 1.2 Friendly Model Download Experience ✅
 - Replace raw progress bar with conversational copy: "Teaching Lumina to understand language... this usually takes 3–5 minutes on your connection"
 - Add animated pixel art states (sword & shield asset already exists) tied to download milestones
 - Show estimated time remaining based on download speed
 
-### 1.3 Family Profile Templates
+### 1.3 Family Profile Templates ✅
 - Offer preset family shapes: "Just me", "Couple", "Family of 4", "Family of 6"
 - Pre-scaffold profiles with sensible role/guardrail defaults
 - Let users edit names and PINs inline rather than building each profile from scratch
 
-### 1.4 Offline / Error State UI
+### 1.4 Offline / Error State UI ✅
 - Clear visual indicator when Ollama is unreachable (not just a failed fetch)
 - "Lumina is sleeping" state with a retry button and troubleshooting hints
 - Distinguish between "Ollama not installed", "Ollama not running", and "model not loaded"
 
-### 1.5 Mobile-First Wizard
+### 1.5 Mobile-First Wizard ✅
 - Audit and fix wizard flow for phone-width viewports
 - Larger tap targets, swipe-friendly step transitions
 - Camera-ready file picker already exists — make sure it's prominent
+
+### 1.6 Model Catalog & Manager ✅
+- Developer-maintained curated catalog of 15+ vetted open-weight models
+- In-app model browser in Settings with category tabs, hardware suitability, NEW badges
+- One-click install with live WebSocket progress (speed + ETA)
+- Gemma 4 9B/27B, Mistral Small 24B, DeepSeek R1, Phi-4 Mini added
+- Tier-aware recommendations: excellent/good/basic hardware detection
 
 ---
 
@@ -95,6 +103,14 @@
   - Which model generated the response
 - Builds trust and helps families understand how their AI works
 
+### 3.5 Meeting AI (Real-Time Session Assistant)
+- Whisper.cpp integration for local speech-to-text transcription
+- Timestamped transcript buffer stored in SQLite
+- Periodic summarizer (same Ollama model, summarization prompt every 5 minutes)
+- On-demand analyst: "What did we agree on?" queries against transcript + memory
+- Meeting end: key facts and action items flow into Kinward's memory system
+- "Meeting mode" UI: start/stop recording, live transcript, rolling summary panel
+
 ---
 
 ## Phase 4 — Scale & Robustness
@@ -124,14 +140,10 @@
 
 ## Suggested Starting Order
 
-**Start with Phase 1** — it's the highest leverage. Every other feature is useless if people bounce during setup. Specifically:
+**Phase 1 is complete.** The on-ramp is solid — install-to-chat in under 5 minutes is shipping. Now the priority is making Kinward a daily habit.
 
-1. **1.1 Hardware auto-detect** — removes the biggest confusion point
-2. **1.2 Friendly download UX** — keeps people engaged during the long wait
-3. **1.4 Offline/error states** — prevents "is it broken?" abandonment
-4. **1.3 Family templates** — speeds up the multi-profile setup
-5. **1.5 Mobile wizard** — broadens who can set it up
+1. **2.1 Family Dashboard** — gives users a reason to open the app beyond chat; surfaces memory highlights and recent activity
+2. **2.3 Shared Family Memory** — the first truly collaborative feature; turns Kinward from "my AI" into "our AI"
+3. **2.5 Simple Update Mechanism** — essential infrastructure so shipped families stay current without manual steps
 
-Then move to **Phase 2.1 (Dashboard)** as the bridge into daily usage, followed by the rest of Phase 2.
-
-Phases 3 and 4 can be interleaved based on what users ask for most.
+Then continue with the rest of Phase 2 (Bookmarks, Export/Backup). Phases 3 and 4 can be interleaved based on what users ask for most.
