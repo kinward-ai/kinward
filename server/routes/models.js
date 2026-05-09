@@ -4,6 +4,11 @@ const { v4: uuid } = require("uuid");
 const { getDb } = require("../lib/db");
 const ollama = require("../lib/ollama");
 const { getCatalog } = require("../lib/model-catalog");
+const auth = require("../lib/auth");
+const { requireAuth, requireRole, requireFreshAdmin } = require("../middleware/auth");
+
+// All model endpoints require auth
+router.use(requireAuth);
 
 // Note: System prompts are built dynamically in chat.js (buildSystemPrompt)
 // using the AI identity from ai_identity table + category extensions.
@@ -84,8 +89,9 @@ router.get("/recommend", async (req, res) => {
   }
 });
 
-// POST /api/models/install — pull a model from Ollama (returns immediately, progress via WS)
-router.post("/install", async (req, res) => {
+// POST /api/models/install — pull a model from Ollama (fresh admin only)
+// Destructive: triggers a multi-GB download that occupies disk + bandwidth.
+router.post("/install", requireFreshAdmin, async (req, res) => {
   const { ollamaName, displayName, category } = req.body;
 
   if (!ollamaName || !category) {
@@ -167,14 +173,23 @@ router.post("/install", async (req, res) => {
       });
     }
 
+    auth.auditLog("model.installed", `${req.session.profile.name} installed ${ollamaName}`, {
+      actorProfileId: req.session.profileId,
+      targetType: "model",
+      targetId: id,
+      sourceIp: req.sourceIp,
+      metadata: { ollamaName, category },
+    });
+
     res.json({ id, ollamaName, category, status: "installed" });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// DELETE /api/models/:id — remove a model
-router.delete("/:id", async (req, res) => {
+// DELETE /api/models/:id — remove a model (fresh admin only)
+// Destructive: deletes multi-GB of installed model weights.
+router.delete("/:id", requireFreshAdmin, async (req, res) => {
   const model = getDb()
     .prepare("SELECT * FROM models WHERE id = ?")
     .get(req.params.id);
@@ -184,6 +199,15 @@ router.delete("/:id", async (req, res) => {
     await ollama.deleteModel(model.ollama_name);
     getDb().prepare("DELETE FROM model_configs WHERE model_id = ?").run(model.id);
     getDb().prepare("DELETE FROM models WHERE id = ?").run(model.id);
+
+    auth.auditLog("model.deleted", `${req.session.profile.name} removed ${model.ollama_name}`, {
+      actorProfileId: req.session.profileId,
+      targetType: "model",
+      targetId: model.id,
+      sourceIp: req.sourceIp,
+      metadata: { ollamaName: model.ollama_name },
+    });
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });

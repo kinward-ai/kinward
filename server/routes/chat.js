@@ -11,6 +11,22 @@ const {
 } = require("../lib/db");
 const ollama = require("../lib/ollama");
 const log = require("../lib/log");
+const { requireAuth } = require("../middleware/auth");
+
+/**
+ * Chat authorization:
+ *   - Sessions and their messages belong to a single profile.
+ *   - Non-admins can only access their own sessions.
+ *   - Admins can see/act on any session (audit-logged).
+ */
+function canAccessSession(session, targetProfileId) {
+  if (session.profileId === targetProfileId) return true;
+  const role = session.profile.role;
+  return role === "admin" || role === "co-admin";
+}
+
+// All chat routes require auth
+router.use(requireAuth);
 
 // ── File upload config ────────────────────────────────────────
 const DATA_DIR = process.env.KINWARD_DATA_DIR || path.join(__dirname, "..", "..", "data");
@@ -155,8 +171,8 @@ function getSystemPrompt(modelId, category) {
 
 // GET /api/chat/sessions — list sessions for a profile
 router.get("/sessions", (req, res) => {
-  const { profileId } = req.query;
-  if (!profileId) return res.status(400).json({ error: "profileId required" });
+  // Always use session profile ID, ignore client-supplied profileId
+  const profileId = req.session.profileId;
 
   const sessions = getDb()
     .prepare(
@@ -172,9 +188,10 @@ router.get("/sessions", (req, res) => {
 
 // POST /api/chat/sessions — create a new chat session
 router.post("/sessions", (req, res) => {
-  const { profileId, category } = req.body;
-  log.debug(`[chat] New session request — profile: ${profileId?.slice(0, 8)}... category: ${category || "general"}`);
-  if (!profileId) return res.status(400).json({ error: "profileId required" });
+  const { category } = req.body;
+  // Always use session profile ID — no impersonation possible
+  const profileId = req.session.profileId;
+  log.debug(`[chat] New session — profile: ${profileId?.slice(0, 8)}... category: ${category || "general"}`);
 
   const cat = category || "general";
 
@@ -211,6 +228,11 @@ router.post("/message", async (req, res) => {
     .prepare("SELECT * FROM sessions WHERE id = ?")
     .get(sessionId);
   if (!session) return res.status(404).json({ error: "Session not found" });
+
+  // Authorization: only the owning profile (or an admin) can send messages in this session
+  if (!canAccessSession(req.session, session.profile_id)) {
+    return res.status(403).json({ error: "Cannot send messages in another profile's session" });
+  }
 
   const profile = getDb()
     .prepare("SELECT * FROM profiles WHERE id = ?")
@@ -428,12 +450,22 @@ router.post("/message", async (req, res) => {
 // POST /api/chat/upload — upload a file, extract text, chunk, store
 router.post("/upload", upload.single("file"), async (req, res) => {
   try {
-    const { profileId, sessionId } = req.body;
-    if (!profileId || !sessionId) {
-      return res.status(400).json({ error: "profileId and sessionId required" });
+    const { sessionId } = req.body;
+    // Always derive profileId from session token — no impersonation
+    const profileId = req.session.profileId;
+
+    if (!sessionId) {
+      return res.status(400).json({ error: "sessionId required" });
     }
     if (!req.file) {
       return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Authorization: verify session belongs to this profile (or caller is admin)
+    const sessRow = getDb().prepare("SELECT profile_id FROM sessions WHERE id = ?").get(sessionId);
+    if (!sessRow) return res.status(404).json({ error: "Session not found" });
+    if (!canAccessSession(req.session, sessRow.profile_id)) {
+      return res.status(403).json({ error: "Cannot upload to another profile's session" });
     }
 
     const ext = path.extname(req.file.originalname).toLowerCase();
@@ -514,7 +546,13 @@ router.post("/upload", upload.single("file"), async (req, res) => {
 
 // GET /api/chat/documents/:sessionId — list documents for a session
 router.get("/documents/:sessionId", (req, res) => {
-  const docs = getSessionDocuments(req.params.sessionId);
+  const sessionId = req.params.sessionId;
+  const sessRow = getDb().prepare("SELECT profile_id FROM sessions WHERE id = ?").get(sessionId);
+  if (!sessRow) return res.status(404).json({ error: "Session not found" });
+  if (!canAccessSession(req.session, sessRow.profile_id)) {
+    return res.status(403).json({ error: "Cannot view another profile's documents" });
+  }
+  const docs = getSessionDocuments(sessionId);
   res.json(docs);
 });
 

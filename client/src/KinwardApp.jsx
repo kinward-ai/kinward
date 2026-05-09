@@ -2,29 +2,35 @@ import { useState, useEffect } from "react";
 import KinwardWizard from "./KinwardWizard";
 import KinwardChat from "./KinwardChat";
 import KinwardSettings from "./KinwardSettings";
+import KinwardDashboard from "./KinwardDashboard";
+import { ProfileGate } from "./components/ProfileGate";
+import { AdminReauthGate } from "./components/AdminReauthGate";
+import { logout as apiLogout, clearToken, getMe } from "./api";
 
 /* ─────────────────────────────────────────────
    KINWARD APP ROUTER
-   
+
    Boot sequence:
    1. Hit /api/system/status
    2. If setup_complete === false → Wizard
-   3. If setup_complete === true  → Chat (profile gate)
-   
-   Admin escape hatch:
-   - From the chat sidebar, admins can access Settings
-   - Settings re-auth requires admin PIN
-   - Settings panel can re-run parts of setup, manage
-     profiles, models, environment mode, etc.
+   3. Otherwise → ProfileGate → Dashboard → Chat/Settings
+
+   Navigation model:
+   - ProfileGate: pick profile + PIN
+   - Dashboard: family board, memory highlights, start chat, recent sessions
+   - Chat: active conversation (with back-to-home button)
+   - Settings: admin-only, from dashboard or chat sidebar
    ───────────────────────────────────────────── */
 
 const API = "/api";
 
 export default function KinwardApp() {
-  const [status, setStatus] = useState(null);    // null = loading, object = loaded
+  const [status, setStatus] = useState(null);          // null = loading, object = loaded
   const [error, setError] = useState(null);
-  const [view, setView] = useState("loading");   // loading | wizard | chat | settings
-  const [settingsUser, setSettingsUser] = useState(null); // authenticated admin for settings
+  const [view, setView] = useState("loading");        // loading | wizard | error | gate | dashboard | chat | settings
+  const [user, setUser] = useState(null);              // authenticated profile
+  const [settingsUser, setSettingsUser] = useState(null);
+  const [navIntent, setNavIntent] = useState(null);   // carries intent into chat view
 
   // ── Check system status on boot ──
   useEffect(() => {
@@ -38,6 +44,20 @@ export default function KinwardApp() {
     return () => clearInterval(retryTimer);
   }, [view]);
 
+  // ── Global auth-expired listener (session timeout, revoked, etc.) ──
+  useEffect(() => {
+    const handler = (e) => {
+      // Admin re-auth required is handled inline by the Settings view; don't blow away the session.
+      if (e.detail === "admin_reauth_required") return;
+      // Session expired entirely — clear user, bounce to gate.
+      setUser(null);
+      setNavIntent(null);
+      setView("gate");
+    };
+    window.addEventListener("kinward:auth-expired", handler);
+    return () => window.removeEventListener("kinward:auth-expired", handler);
+  }, []);
+
   async function checkStatus() {
     setView("loading");
     setError(null);
@@ -46,28 +66,83 @@ export default function KinwardApp() {
       if (!res.ok) throw new Error(`Server responded ${res.status}`);
       const data = await res.json();
       setStatus(data);
-      setView(data.setupComplete ? "chat" : "wizard");
+      setView(data.setupComplete ? "gate" : "wizard");
     } catch (err) {
       setError(err.message);
       setView("error");
     }
   }
 
-  // ── Wizard completed → flip to chat ──
+  // ── Wizard completed → flip to profile gate ──
   function handleSetupComplete() {
+    setView("gate");
+  }
+
+  // ── Profile authenticated → land on dashboard ──
+  function handleLogin(profile) {
+    setUser(profile);
+    setView("dashboard");
+  }
+
+  // ── Lock (from any logged-in view) → revoke session, back to gate ──
+  async function handleLock() {
+    try {
+      await apiLogout();
+    } catch {
+      // Even if server logout fails, clear client state
+      clearToken();
+    }
+    setUser(null);
+    setNavIntent(null);
+    setView("gate");
+  }
+
+  // ── Start a new chat with a specific category ──
+  function handleStartChat(category) {
+    setNavIntent({ type: "new", category, stamp: Date.now() });
     setView("chat");
   }
 
-  // ── Admin requests settings (from chat sidebar) ──
-  function handleOpenSettings(user) {
-    setSettingsUser(user);
+  // ── Resume an existing chat session ──
+  function handleOpenSession(session) {
+    setNavIntent({ type: "resume", session, stamp: Date.now() });
+    setView("chat");
+  }
+
+  // ── Back to dashboard from chat ──
+  function handleBackToDashboard() {
+    setNavIntent(null);
+    setView("dashboard");
+  }
+
+  // ── Admin requests settings (from dashboard or chat sidebar) ──
+  // Route via the re-auth gate first. Freshness is checked against the server
+  // so expiry of the 5-minute window bumps the user back to the gate automatically.
+  async function handleOpenSettings(profile) {
+    const target = profile || user;
+    setSettingsUser(target);
+    try {
+      const me = await getMe();
+      if (me.adminFresh) {
+        setView("settings");
+      } else {
+        setView("settings_reauth");
+      }
+    } catch {
+      // If we can't check, assume we need to re-auth
+      setView("settings_reauth");
+    }
+  }
+
+  // ── Re-auth succeeded → enter settings ──
+  function handleReauthSuccess() {
     setView("settings");
   }
 
-  // ── Return to chat from settings ──
+  // ── Return from settings (back to dashboard) ──
   function handleCloseSettings() {
     setSettingsUser(null);
-    setView("chat");
+    setView("dashboard");
   }
 
   // ── Loading state ──
@@ -108,15 +183,59 @@ export default function KinwardApp() {
     return <KinwardWizard onComplete={handleSetupComplete} />;
   }
 
-  // ── Settings (admin-only, re-entered from chat) ──
+  // ── Profile Gate (pick profile + PIN) ──
+  if (view === "gate") {
+    return <ProfileGate onLogin={handleLogin} />;
+  }
+
+  // ── Dashboard (family home screen) ──
+  if (view === "dashboard" && user) {
+    return (
+      <KinwardDashboard
+        user={user}
+        onStartChat={handleStartChat}
+        onOpenSession={handleOpenSession}
+        onLock={handleLock}
+        onOpenSettings={handleOpenSettings}
+      />
+    );
+  }
+
+  // ── Settings re-auth gate (admin PIN required before entering Settings) ──
+  if (view === "settings_reauth" && settingsUser) {
+    return (
+      <AdminReauthGate
+        profile={settingsUser}
+        onSuccess={handleReauthSuccess}
+        onCancel={handleCloseSettings}
+        title="Enter Settings"
+        subtitle={`For everyone's safety, enter your PIN to unlock the admin area, ${settingsUser.name}.`}
+      />
+    );
+  }
+
+  // ── Settings (admin-only, requires fresh PIN verify) ──
   if (view === "settings") {
     return (
       <KinwardSettings user={settingsUser} onBack={handleCloseSettings} />
     );
   }
 
-  // ── Chat (default post-setup experience) ──
-  return <KinwardChat onOpenSettings={handleOpenSettings} />;
+  // ── Chat (active conversation) ──
+  if (view === "chat" && user) {
+    return (
+      <KinwardChat
+        user={user}
+        navIntent={navIntent}
+        onOpenSettings={handleOpenSettings}
+        onBackToDashboard={handleBackToDashboard}
+        onLock={handleLock}
+      />
+    );
+  }
+
+  // ── Fallback: shouldn't reach here ──
+  return null;
 }
 
 

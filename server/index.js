@@ -21,6 +21,14 @@ app.use("/api/profiles", require("./routes/profiles"));
 app.use("/api/models", require("./routes/models"));
 app.use("/api/chat", require("./routes/chat"));
 app.use("/api/memory", require("./routes/memory"));
+app.use("/api/board", require("./routes/board"));
+app.use("/api/dashboard", require("./routes/dashboard"));
+app.use("/api/audit", require("./routes/audit"));
+
+// Periodic auth cleanup — prune expired sessions and old PIN attempts
+const authLib = require("./lib/auth");
+authLib.cleanupExpiredSessions();
+setInterval(() => authLib.cleanupExpiredSessions(), 60 * 60 * 1000); // hourly
 
 // --- Serve frontend (when built) ---
 const clientPath = path.join(__dirname, "..", "client", "dist");

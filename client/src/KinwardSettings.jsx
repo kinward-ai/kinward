@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { api, API, BRAND as B, ShieldIcon } from "./components/shared";
+import { api, API, authFetch, BRAND as B, ShieldIcon } from "./components/shared";
 import { ModelManager } from "./components/ModelManager";
+import AuditLogSection from "./components/AuditLogSection";
 
 /* ─────────────────────────────────────────────
    KINWARD SETTINGS PANEL
@@ -27,6 +28,7 @@ const SECTIONS = [
   { id: "world", label: "World Context", icon: "🌍" },
   { id: "models", label: "AI Models", icon: "📦" },
   { id: "profiles", label: "Family", icon: "👥" },
+  { id: "audit", label: "Audit Log", icon: "📋" },
   { id: "about", label: "About", icon: "🛡️" },
 ];
 
@@ -85,7 +87,7 @@ function MemorySection({ adminProfile }) {
   // Delete a memory
   const handleDelete = async (memId) => {
     try {
-      await fetch(`${API}/memory/${selectedProfile.id}/${memId}`, { method: "DELETE" });
+      await authFetch(`${API}/memory/${selectedProfile.id}/${memId}`, { method: "DELETE" });
       setMemories((prev) => prev.filter((m) => m.id !== memId));
       showToast("Memory deleted");
     } catch {
@@ -96,7 +98,7 @@ function MemorySection({ adminProfile }) {
   // Save an edit
   const handleSaveEdit = async (mem) => {
     try {
-      await fetch(`${API}/memory/${selectedProfile.id}`, {
+      await authFetch(`${API}/memory/${selectedProfile.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -120,7 +122,7 @@ function MemorySection({ adminProfile }) {
   const handleAdd = async (category) => {
     if (!newKey.trim() || !newValue.trim()) return;
     try {
-      await fetch(`${API}/memory/${selectedProfile.id}`, {
+      await authFetch(`${API}/memory/${selectedProfile.id}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -372,7 +374,7 @@ function WorldContextSection() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    fetch(`${API}/system/world-context`)
+    authFetch(`${API}/system/world-context`)
       .then((r) => r.json())
       .then((data) => {
         // The world context is stored JSON-stringified in system_config
@@ -386,7 +388,7 @@ function WorldContextSection() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      await fetch(`${API}/system/world-context`, {
+      await authFetch(`${API}/system/world-context`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ context }),
@@ -508,7 +510,7 @@ function IdentitySection() {
   const [editTagline, setEditTagline] = useState("");
 
   useEffect(() => {
-    fetch(`${API}/system/identity`)
+    authFetch(`${API}/system/identity`)
       .then((r) => r.json())
       .then((data) => {
         setIdentity(data);
@@ -523,7 +525,7 @@ function IdentitySection() {
     if (!editName.trim()) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API}/system/identity`, {
+      const res = await authFetch(`${API}/system/identity`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -685,6 +687,8 @@ export default function KinwardSettings({ user, onBack }) {
         return <ModelManager />;
       case "profiles":
         return <ProfilesSection />;
+      case "audit":
+        return <AuditLogSection />;
       case "about":
         return <AboutSection />;
       default:

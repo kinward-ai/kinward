@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kinward — Dashboard Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=Lora:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --cream: #FAF6F1;
+    --warm-white: #FFFDF9;
+    --orange: #D4622B;
+    --orange-light: #E8956A;
+    --orange-faint: #FFF0E8;
+    --charcoal: #2C2C2C;
+    --slate: #6B6B6B;
+    --mist: #E8E4DF;
+    --green: #4A8C5C;
+    --green-faint: #EDFAF3;
+    --blue: #5A8BAD;
+    --blue-faint: #EEF5FA;
+    --amber: #C4853A;
+    --amber-faint: #FDF4E3;
+    --red: #C44B4B;
+    --shadow: rgba(44,44,44,0.06);
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--cream);
+    color: var(--charcoal);
+    font-family: 'Lora', Georgia, serif;
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+
+  /* View switcher — just for the mockup */
+  .mockup-nav {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--charcoal);
+    color: var(--cream);
+    border-radius: 100px;
+    padding: 6px;
+    display: flex;
+    gap: 4px;
+    z-index: 100;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.15);
+  }
+  .mockup-nav button {
+    background: transparent;
+    color: var(--cream);
+    border: none;
+    padding: 8px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mockup-nav button.active {
+    background: var(--orange);
+    color: white;
+  }
+  .mockup-nav button:hover:not(.active) { background: rgba(255,255,255,0.08); }
+
+  /* App container */
+  .app {
+    max-width: 780px;
+    margin: 0 auto;
+    padding: 32px 24px 120px;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 36px;
+  }
+  .avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--orange);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    font-weight: 500;
+    flex-shrink: 0;
+  }
+  .header-text { flex: 1; }
+  .greeting {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    font-weight: 500;
+    color: var(--charcoal);
+    letter-spacing: 0.5px;
+  }
+  .date {
+    font-size: 13px;
+    color: var(--slate);
+    margin-top: 2px;
+  }
+  .header-actions {
+    display: flex;
+    gap: 8px;
+  }
+  .icon-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: transparent;
+    border: 1px solid var(--mist);
+    color: var(--slate);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.2s;
+  }
+  .icon-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+  /* Section */
+  .section { margin-bottom: 40px; }
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--mist);
+  }
+  .section-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--slate);
+  }
+  .section-action {
+    background: var(--orange);
+    color: white;
+    border: none;
+    padding: 7px 14px;
+    border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .section-action:hover { background: var(--orange-light); }
+  .link-action {
+    background: transparent;
+    color: var(--orange);
+    border: none;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    cursor: pointer;
+    text-decoration: none;
+  }
+  .link-action:hover { text-decoration: underline; }
+
+  /* Review banner */
+  .review-banner {
+    background: var(--amber-faint);
+    border: 1px solid rgba(196,133,58,0.25);
+    border-radius: 10px;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    color: var(--charcoal);
+  }
+  .review-banner .pulse {
+    width: 8px;
+    height: 8px;
+    background: var(--amber);
+    border-radius: 50%;
+    flex-shrink: 0;
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+  .review-banner .review-text { flex: 1; }
+  .review-banner button {
+    background: var(--amber);
+    color: white;
+    border: none;
+    padding: 6px 14px;
+    border-radius: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+  }
+
+  /* Family Board posts */
+  .post {
+    background: var(--warm-white);
+    border: 1px solid var(--mist);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 12px;
+    transition: border-color 0.2s;
+  }
+  .post:hover { border-color: rgba(212,98,43,0.3); }
+
+  .post-type-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .post-type-event { background: var(--blue-faint); color: var(--blue); }
+  .post-type-update { background: var(--green-faint); color: var(--green); }
+  .post-type-win { background: var(--orange-faint); color: var(--orange); }
+  .post-type-pending { background: var(--amber-faint); color: var(--amber); }
+
+  .post-title {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--charcoal);
+    margin-bottom: 6px;
+    line-height: 1.4;
+  }
+  .post-body {
+    font-size: 14px;
+    color: var(--slate);
+    line-height: 1.65;
+    margin-bottom: 12px;
+  }
+  .post-meta-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    font-size: 12px;
+    color: var(--slate);
+    margin-bottom: 12px;
+  }
+  .post-meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+  }
+  .post-meta-item svg { flex-shrink: 0; }
+
+  .post-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-top: 10px;
+    border-top: 1px solid var(--mist);
+    font-size: 12px;
+    color: var(--slate);
+  }
+  .post-author {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .mini-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    font-weight: 500;
+  }
+  .avatar-emma { background: #6BAF7D; }
+  .avatar-mom { background: #C4853A; }
+  .avatar-jake { background: #6BAF7D; }
+  .avatar-dad { background: var(--orange); }
+
+  .post-reactions {
+    display: flex;
+    gap: 4px;
+  }
+  .reaction {
+    padding: 2px 8px;
+    background: var(--cream);
+    border: 1px solid var(--mist);
+    border-radius: 12px;
+    font-size: 11px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: 'DM Mono', monospace;
+  }
+  .reaction:hover { border-color: var(--orange); }
+  .reaction.active { background: var(--orange-faint); border-color: var(--orange); color: var(--orange); }
+
+  .approved-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--green);
+    letter-spacing: 0.5px;
+  }
+
+  /* Memory highlights */
+  .memory-card {
+    background: linear-gradient(135deg, var(--orange-faint) 0%, var(--cream) 100%);
+    border: 1px solid rgba(212,98,43,0.15);
+    border-radius: 14px;
+    padding: 20px;
+  }
+  .memory-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+  .memory-icon {
+    width: 32px;
+    height: 32px;
+    background: var(--orange);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .memory-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--charcoal);
+    letter-spacing: 0.5px;
+  }
+  .memory-count {
+    font-size: 11px;
+    color: var(--slate);
+    font-family: 'DM Mono', monospace;
+    margin-top: 1px;
+  }
+  .memory-list {
+    list-style: none;
+    padding-left: 0;
+  }
+  .memory-list li {
+    font-size: 13px;
+    color: var(--charcoal);
+    padding: 6px 0;
+    padding-left: 18px;
+    position: relative;
+    line-height: 1.6;
+  }
+  .memory-list li:before {
+    content: "•";
+    color: var(--orange);
+    position: absolute;
+    left: 6px;
+    font-weight: bold;
+  }
+
+  /* Mode tiles */
+  .mode-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+  }
+  .mode-tile {
+    background: var(--warm-white);
+    border: 1px solid var(--mist);
+    border-radius: 12px;
+    padding: 22px 12px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+  .mode-tile:hover {
+    border-color: var(--orange);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px var(--shadow);
+  }
+  .mode-emoji {
+    font-size: 26px;
+    margin-bottom: 8px;
+  }
+  .mode-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--charcoal);
+    letter-spacing: 0.5px;
+  }
+
+  /* Recent conversations */
+  .convo-list {
+    background: var(--warm-white);
+    border: 1px solid var(--mist);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .convo {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--mist);
+    cursor: pointer;
+    transition: background 0.15s;
+  }
+  .convo:last-child { border-bottom: none; }
+  .convo:hover { background: var(--orange-faint); }
+  .convo-title {
+    flex: 1;
+    font-size: 14px;
+    color: var(--charcoal);
+  }
+  .convo-meta {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--slate);
+    letter-spacing: 0.5px;
+  }
+  .convo-mode-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .mode-general { background: var(--blue); }
+  .mode-kids { background: var(--green); }
+  .mode-creative { background: var(--amber); }
+  .mode-research { background: var(--orange); }
+
+  /* ─── Modal (new post) ─── */
+  .modal-backdrop {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(44,44,44,0.45);
+    backdrop-filter: blur(4px);
+    z-index: 50;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+  .modal-backdrop.active { display: flex; }
+  .modal {
+    background: var(--warm-white);
+    border-radius: 18px;
+    padding: 28px;
+    max-width: 440px;
+    width: 100%;
+    box-shadow: 0 12px 48px rgba(0,0,0,0.2);
+  }
+  .modal-title {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--orange);
+    margin-bottom: 6px;
+  }
+  .modal-sub {
+    font-size: 13px;
+    color: var(--slate);
+    margin-bottom: 22px;
+  }
+  .type-picker {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+    margin-bottom: 18px;
+  }
+  .type-option {
+    background: var(--cream);
+    border: 1.5px solid var(--mist);
+    border-radius: 10px;
+    padding: 14px 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .type-option.selected {
+    border-color: var(--orange);
+    background: var(--orange-faint);
+  }
+  .type-option-icon {
+    font-size: 20px;
+    margin-bottom: 4px;
+  }
+  .type-option-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
+  .form-field { margin-bottom: 14px; }
+  .form-label {
+    display: block;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--slate);
+    margin-bottom: 6px;
+  }
+  .form-input, .form-textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1.5px solid var(--mist);
+    border-radius: 8px;
+    font-family: 'Lora', Georgia, serif;
+    font-size: 14px;
+    color: var(--charcoal);
+    background: white;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-input:focus, .form-textarea:focus { border-color: var(--orange); }
+  .form-textarea { resize: vertical; min-height: 70px; font-family: 'Lora', serif; }
+  .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+  }
+  .modal-actions {
+    display: flex;
+    gap: 10px;
+    justify-content: flex-end;
+    margin-top: 22px;
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--slate);
+    border: none;
+    padding: 9px 18px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    cursor: pointer;
+  }
+  .btn-primary {
+    background: var(--orange);
+    color: white;
+    border: none;
+    padding: 9px 22px;
+    border-radius: 8px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn-primary:hover { background: var(--orange-light); }
+
+  /* ─── Admin review screen ─── */
+  .review-pending {
+    border: 1.5px solid var(--amber);
+    background: linear-gradient(to right, var(--amber-faint) 0%, var(--warm-white) 100%);
+  }
+  .review-actions {
+    display: flex;
+    gap: 8px;
+    padding-top: 12px;
+    border-top: 1px solid var(--mist);
+    margin-top: 12px;
+  }
+  .review-btn {
+    padding: 7px 14px;
+    border-radius: 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+  }
+  .btn-approve {
+    background: var(--green);
+    color: white;
+  }
+  .btn-approve:hover { background: #3F7550; }
+  .btn-edit {
+    background: var(--warm-white);
+    color: var(--slate);
+    border: 1px solid var(--mist);
+  }
+  .btn-edit:hover { border-color: var(--slate); }
+  .btn-reject {
+    background: transparent;
+    color: var(--red);
+    border: 1px solid rgba(196,75,75,0.3);
+  }
+  .btn-reject:hover { background: rgba(196,75,75,0.08); }
+
+  /* View hiding */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* Mobile */
+  @media (max-width: 520px) {
+    .app { padding: 20px 16px 120px; }
+    .mode-grid { grid-template-columns: repeat(2, 1fr); }
+    .type-picker { grid-template-columns: 1fr 1fr 1fr; }
+    .form-row { grid-template-columns: 1fr; }
+    .section-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════ DASHBOARD VIEW ═══════ -->
+<div class="view active" id="view-dashboard">
+  <div class="app">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="avatar avatar-dad">A</div>
+      <div class="header-text">
+        <div class="greeting">Good morning, Alex</div>
+        <div class="date">Sunday, April 19</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" title="Settings">⚙</button>
+      </div>
+    </div>
+
+    <!-- Family Board -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Family Board</div>
+        <button class="section-action" onclick="switchView('modal')">+ New Post</button>
+      </div>
+
+      <!-- Admin review banner (only shown to admins when posts are pending) -->
+      <div class="review-banner">
+        <div class="pulse"></div>
+        <div class="review-text">
+          <strong style="color: var(--charcoal); font-family: 'DM Mono', monospace; font-size: 12px;">2 posts waiting for review</strong>
+        </div>
+        <button onclick="switchView('review')">Review</button>
+      </div>
+
+      <!-- Event post -->
+      <div class="post">
+        <div class="post-type-badge post-type-event">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zM5 8V6h14v2H5z"/></svg>
+          Event
+        </div>
+        <div class="post-title">Emma's piano recital</div>
+        <div class="post-body">She's playing two pieces this year. Let's all go!</div>
+        <div class="post-meta-row">
+          <div class="post-meta-item">
+            📅 May 4, 2026 · 6:30 PM
+          </div>
+          <div class="post-meta-item">
+            📍 Community Music Hall
+          </div>
+        </div>
+        <div class="post-footer">
+          <div class="post-author">
+            <div class="mini-avatar avatar-emma">E</div>
+            <span>Added by Emma · 2 days ago</span>
+            <span class="approved-tag">✓ approved by Dad</span>
+          </div>
+          <div class="post-reactions">
+            <span class="reaction active">❤️ 3</span>
+            <span class="reaction">🎉 2</span>
+            <span class="reaction">+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Update post -->
+      <div class="post">
+        <div class="post-type-badge post-type-update">
+          📝 Update
+        </div>
+        <div class="post-title">Soccer practice moved to Thursdays</div>
+        <div class="post-body">Coach just texted — practice is moving from Tuesdays to Thursdays starting next week. Still at 5pm. Same field.</div>
+        <div class="post-footer">
+          <div class="post-author">
+            <div class="mini-avatar avatar-mom">M</div>
+            <span>Added by Mom · 2h ago</span>
+          </div>
+          <div class="post-reactions">
+            <span class="reaction">👍 1</span>
+            <span class="reaction">+</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Win post -->
+      <div class="post">
+        <div class="post-type-badge post-type-win">
+          🎉 Win
+        </div>
+        <div class="post-title">Jake got a B+ on his algebra test!</div>
+        <div class="post-body">Been studying hard this week. Proud of him!</div>
+        <div class="post-footer">
+          <div class="post-author">
+            <div class="mini-avatar avatar-jake">J</div>
+            <span>Added by Jake · yesterday</span>
+          </div>
+          <div class="post-reactions">
+            <span class="reaction active">❤️ 4</span>
+            <span class="reaction">🎉 2</span>
+            <span class="reaction">+</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 16px;">
+        <button class="link-action">View older posts →</button>
+      </div>
+    </div>
+
+    <!-- Memory highlights -->
+    <div class="section">
+      <div class="memory-card">
+        <div class="memory-header">
+          <div class="memory-icon">🧠</div>
+          <div>
+            <div class="memory-title">Lumina learned 3 new things</div>
+            <div class="memory-count">THIS WEEK</div>
+          </div>
+        </div>
+        <ul class="memory-list">
+          <li>Emma has piano lessons on Mondays at 4pm</li>
+          <li>You prefer Mediterranean recipes for family dinners</li>
+          <li>The dog's heartworm meds are due next Tuesday</li>
+        </ul>
+        <div style="margin-top: 12px;">
+          <button class="link-action">See all memories →</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Start a conversation -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Start a conversation</div>
+      </div>
+      <div class="mode-grid">
+        <div class="mode-tile">
+          <div class="mode-emoji">💬</div>
+          <div class="mode-label">General</div>
+        </div>
+        <div class="mode-tile">
+          <div class="mode-emoji">🌟</div>
+          <div class="mode-label">Kids</div>
+        </div>
+        <div class="mode-tile">
+          <div class="mode-emoji">🔍</div>
+          <div class="mode-label">Research</div>
+        </div>
+        <div class="mode-tile">
+          <div class="mode-emoji">✨</div>
+          <div class="mode-label">Creative</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Recent conversations -->
+    <div class="section">
+      <div class="section-header">
+        <div class="section-title">Recent conversations</div>
+        <button class="link-action">View all →</button>
+      </div>
+      <div class="convo-list">
+        <div class="convo">
+          <div class="convo-mode-dot mode-general"></div>
+          <div class="convo-title">Meal planning for the week</div>
+          <div class="convo-meta">2H AGO · GENERAL</div>
+        </div>
+        <div class="convo">
+          <div class="convo-mode-dot mode-kids"></div>
+          <div class="convo-title">Help with Emma's algebra homework</div>
+          <div class="convo-meta">YESTERDAY · KIDS</div>
+        </div>
+        <div class="convo">
+          <div class="convo-mode-dot mode-creative"></div>
+          <div class="convo-title">Brainstorming launch copy</div>
+          <div class="convo-meta">2D AGO · CREATIVE</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ═══════ NEW POST MODAL ═══════ -->
+<div class="modal-backdrop" id="view-modal">
+  <div class="modal">
+    <div class="modal-title">New Family Post</div>
+    <div class="modal-sub">Share an event, update, or win with the family.</div>
+
+    <div class="form-field">
+      <label class="form-label">Post type</label>
+      <div class="type-picker">
+        <div class="type-option selected">
+          <div class="type-option-icon">📅</div>
+          <div class="type-option-label">Event</div>
+        </div>
+        <div class="type-option">
+          <div class="type-option-icon">📝</div>
+          <div class="type-option-label">Update</div>
+        </div>
+        <div class="type-option">
+          <div class="type-option-icon">🎉</div>
+          <div class="type-option-label">Win</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Title</label>
+      <input type="text" class="form-input" placeholder="e.g. Emma's piano recital" value="Emma's piano recital">
+    </div>
+
+    <div class="form-field">
+      <label class="form-label">Details</label>
+      <textarea class="form-textarea" placeholder="Anything else the family should know?">She's playing two pieces this year. Let's all go!</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-field" style="margin-bottom: 0;">
+        <label class="form-label">Date</label>
+        <input type="text" class="form-input" value="May 4, 2026">
+      </div>
+      <div class="form-field" style="margin-bottom: 0;">
+        <label class="form-label">Time</label>
+        <input type="text" class="form-input" value="6:30 PM">
+      </div>
+    </div>
+
+    <div class="form-field" style="margin-top: 14px;">
+      <label class="form-label">Location (optional)</label>
+      <input type="text" class="form-input" value="Community Music Hall">
+    </div>
+
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="switchView('dashboard')">Cancel</button>
+      <button class="btn-primary" onclick="switchView('dashboard')">Post to Board</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════ ADMIN REVIEW VIEW ═══════ -->
+<div class="view" id="view-review">
+  <div class="app">
+
+    <div class="header">
+      <div class="avatar avatar-dad">A</div>
+      <div class="header-text">
+        <div class="greeting">Review posts</div>
+        <div class="date">2 waiting for your review</div>
+      </div>
+      <div class="header-actions">
+        <button class="icon-btn" title="Back" onclick="switchView('dashboard')">←</button>
+      </div>
+    </div>
+
+    <!-- Pending post 1 -->
+    <div class="post review-pending">
+      <div class="post-type-badge post-type-pending">
+        ⏱ Pending review
+      </div>
+      <div class="post-title">Can I have a sleepover this weekend?</div>
+      <div class="post-body">Mia and Zoe want to come over Saturday night. Pleeeease?</div>
+      <div class="post-meta-row">
+        <div class="post-meta-item">📅 Saturday, April 25</div>
+      </div>
+      <div class="post-footer" style="border-bottom: none; padding-bottom: 0;">
+        <div class="post-author">
+          <div class="mini-avatar avatar-emma">E</div>
+          <span>From Emma · 1h ago</span>
+        </div>
+      </div>
+      <div class="review-actions">
+        <button class="review-btn btn-approve">✓ Approve</button>
+        <button class="review-btn btn-edit">Edit & approve</button>
+        <button class="review-btn btn-reject">Decline</button>
+      </div>
+    </div>
+
+    <!-- Pending post 2 -->
+    <div class="post review-pending">
+      <div class="post-type-badge post-type-pending">
+        ⏱ Pending review
+      </div>
+      <div class="post-title">I drew this today!</div>
+      <div class="post-body">Mrs. Chen said it was the best in the class. She wants to put it on the wall.</div>
+      <div class="post-footer" style="border-bottom: none; padding-bottom: 0;">
+        <div class="post-author">
+          <div class="mini-avatar avatar-jake">J</div>
+          <span>From Jake · yesterday</span>
+        </div>
+      </div>
+      <div class="review-actions">
+        <button class="review-btn btn-approve">✓ Approve</button>
+        <button class="review-btn btn-edit">Edit & approve</button>
+        <button class="review-btn btn-reject">Decline</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Mockup view switcher -->
+<div class="mockup-nav">
+  <button class="active" onclick="switchView('dashboard')">Dashboard</button>
+  <button onclick="switchView('modal')">New Post</button>
+  <button onclick="switchView('review')">Admin Review</button>
+</div>
+
+<script>
+  function switchView(name) {
+    // Hide all views
+    document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+    document.getElementById('view-modal').classList.remove('active');
+
+    // Update nav
+    document.querySelectorAll('.mockup-nav button').forEach(b => b.classList.remove('active'));
+
+    if (name === 'modal') {
+      document.getElementById('view-dashboard').classList.add('active');
+      document.getElementById('view-modal').classList.add('active');
+      document.querySelector('.mockup-nav button:nth-child(2)').classList.add('active');
+    } else {
+      document.getElementById('view-' + name).classList.add('active');
+      const idx = name === 'dashboard' ? 1 : 3;
+      document.querySelector('.mockup-nav button:nth-child(' + idx + ')').classList.add('active');
+    }
+  }
+</script>
+
+</body>
+</html>

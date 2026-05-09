@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ShieldIcon, avatarColor, timeAgo, BRAND } from "./shared";
 import { CategoryPicker } from "./CategoryPicker";
 
-export function Sidebar({ profile, sessions, activeSession, onSelectSession, onNewChat, onLock, onOpenSettings, aiName }) {
+export function Sidebar({ profile, sessions, activeSession, onSelectSession, onNewChat, onLock, onOpenSettings, onBackToDashboard, aiName }) {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const isAdmin = profile.role === "admin" || profile.role === "co-admin";
 
@@ -65,6 +65,11 @@ export function Sidebar({ profile, sessions, activeSession, onSelectSession, onN
       </div>
 
       <div className="kw-sidebar-footer">
+        {onBackToDashboard && (
+          <button className="kw-lock-btn" onClick={onBackToDashboard}>
+            🏠 Home
+          </button>
+        )}
         <button className="kw-lock-btn" onClick={onLock}>
           🔒 Lock
         </button>

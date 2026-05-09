@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, BRAND } from "./components/shared";
+import { api, authFetch, BRAND } from "./components/shared";
 import { ProfileGate } from "./components/ProfileGate";
 import { Sidebar } from "./components/Sidebar";
 import { ChatArea } from "./components/ChatArea";
@@ -688,8 +688,8 @@ const CSS = `
 // ════════════════════════════════════════════════
 //  MAIN APP
 // ════════════════════════════════════════════════
-export default function KinwardChat({ onOpenSettings }) {
-  const [user, setUser] = useState(null); // authenticated profile
+export default function KinwardChat({ user: propUser, navIntent, onOpenSettings, onBackToDashboard, onLock }) {
+  const [user, setUser] = useState(propUser || null); // authenticated profile
   const [sessions, setSessions] = useState([]);
   const [activeSession, setActiveSession] = useState(null);
   const [messages, setMessages] = useState([]);
@@ -703,6 +703,31 @@ export default function KinwardChat({ onOpenSettings }) {
       .then((data) => { if (data.name) setAiName(data.name); })
       .catch(() => {}); // fallback to "Lumina"
   }, []);
+
+  // ── Sync user from parent (when app drives auth) ──
+  useEffect(() => {
+    if (propUser && propUser !== user) setUser(propUser);
+  }, [propUser]);
+
+  // ── Handle nav intent from dashboard (new chat or resume session) ──
+  useEffect(() => {
+    if (!navIntent || !user) return;
+    if (navIntent.type === "new" && navIntent.category) {
+      // Create a new session with the requested category
+      api("/chat/sessions", {
+        method: "POST",
+        body: JSON.stringify({ profileId: user.id, category: navIntent.category }),
+      })
+        .then((session) => {
+          setSessions((prev) => [session, ...prev]);
+          setActiveSession(session);
+          setMessages([]);
+        })
+        .catch((err) => console.error("Auto-create session failed:", err));
+    } else if (navIntent.type === "resume" && navIntent.session) {
+      setActiveSession(navIntent.session);
+    }
+  }, [navIntent, user]);
 
   // ── Load sessions when user logs in ──
   useEffect(() => {
@@ -755,12 +780,11 @@ export default function KinwardChat({ onOpenSettings }) {
     setStreamText("");
 
     try {
-      const response = await fetch(`/api/chat/message`, {
+      const response = await authFetch(`/api/chat/message`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           sessionId: activeSession.id,
-          profileId: user.id,
           content: text,
           ...(documentId && { documentId }),
         }),
@@ -882,10 +906,14 @@ export default function KinwardChat({ onOpenSettings }) {
 
   // ── Lock (return to profile gate) ──
   const handleLock = () => {
-    setUser(null);
     setSessions([]);
     setActiveSession(null);
     setMessages([]);
+    if (onLock) {
+      onLock();           // parent-driven: go back to ProfileGate
+    } else {
+      setUser(null);      // standalone fallback
+    }
   };
 
   // ── Inject styles ──
@@ -913,6 +941,7 @@ export default function KinwardChat({ onOpenSettings }) {
             onSelectSession={setActiveSession}
             onNewChat={handleNewChat}
             onLock={handleLock}
+            onBackToDashboard={onBackToDashboard}
             onOpenSettings={onOpenSettings ? () => onOpenSettings(user) : null}
             aiName={aiName}
           />

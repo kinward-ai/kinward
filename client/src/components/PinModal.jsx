@@ -39,17 +39,47 @@ export function PinModal({ profile, onSuccess, onCancel }) {
       if (next.length === 4) {
         setLoading(true);
         try {
-          const res = await api(`/profiles/${profile.id}/auth`, {
+          // Direct fetch so we can inspect 429 and 401 distinctly
+          const response = await fetch(`/api/profiles/${profile.id}/auth`, {
             method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ pin: next }),
           });
-          if (res.authenticated) {
-            onSuccess(profile);
+
+          if (response.status === 429) {
+            const body = await response.json().catch(() => ({}));
+            const secs = body.retryAfterSeconds || 0;
+            const mins = Math.ceil(secs / 60);
+            resetPin(`Too many attempts. Try again in ${mins} min.`);
+            setLoading(false);
+            return;
+          }
+
+          if (response.status === 401) {
+            resetPin("Wrong PIN — try again");
+            setLoading(false);
+            return;
+          }
+
+          if (!response.ok) {
+            resetPin("Something went wrong — try again");
+            setLoading(false);
+            return;
+          }
+
+          const res = await response.json();
+          if (res.authenticated && res.token) {
+            // Store the session token for subsequent API calls
+            sessionStorage.setItem(
+              "kinward_session",
+              JSON.stringify({ token: res.token, expiresAt: res.expiresAt })
+            );
+            onSuccess(res.profile || profile);
           } else {
             resetPin("Wrong PIN — try again");
           }
         } catch {
-          resetPin("Wrong PIN — try again");
+          resetPin("Couldn't reach Kinward — try again");
         }
         setLoading(false);
       }

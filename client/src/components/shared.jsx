@@ -1,14 +1,30 @@
 // ── API Layer ──────────────────────────────────
+// All token storage and auth-aware fetching lives in ../lib/session.
+// This file just exposes the shorthand `api(path, opts)` helper that
+// auto-prefixes /api/ for components that import it.
+import { apiJson, authFetch } from "../lib/session";
+
 export const API = "/api";
 
+/**
+ * Convenience helper — `api("/system/status")` resolves to /api/system/status.
+ * Pass-through to apiJson which handles auth headers and 401 dispatch.
+ */
 export async function api(path, opts = {}) {
-  const res = await fetch(`${API}${path}`, {
-    headers: { "Content-Type": "application/json", ...opts.headers },
-    ...opts,
-  });
-  if (!res.ok) throw new Error(`API ${res.status}: ${await res.text()}`);
-  return res.json();
+  // Don't double-stringify body — apiJson handles that. But shared.jsx callers
+  // historically passed already-stringified bodies (`JSON.stringify(...)`) for
+  // some calls, so detect and unwrap.
+  let body = opts.body;
+  if (typeof body === "string") {
+    try { body = JSON.parse(body); } catch { /* leave as string */ }
+  }
+
+  const fullPath = path.startsWith("/api") ? path : `${API}${path.startsWith("/") ? path : "/" + path}`;
+  return apiJson(fullPath, { ...opts, body });
 }
+
+// Re-export authFetch for components that need raw fetch with auth (uploads, streams)
+export { authFetch };
 
 // ── Brand Tokens ───────────────────────────────
 export const BRAND = {

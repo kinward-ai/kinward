@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { ShieldIcon, AIShieldAvatar, avatarColor, formatTime, SendArrow, BRAND, API } from "./shared";
+import { ShieldIcon, AIShieldAvatar, avatarColor, formatTime, SendArrow, BRAND, API, authFetch } from "./shared";
 
 export function ChatArea({ profile, session, messages, streaming, streamText, onSend, aiName }) {
   const [input, setInput] = useState("");
@@ -44,10 +44,11 @@ export function ChatArea({ profile, session, messages, streaming, streamText, on
     try {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("profileId", profile.id);
       formData.append("sessionId", session.id);
 
-      const res = await fetch(`${API}/chat/upload`, {
+      // authFetch attaches the session token automatically. profileId is
+      // derived from the token server-side — no need to send it.
+      const res = await authFetch(`${API}/chat/upload`, {
         method: "POST",
         body: formData,
       });

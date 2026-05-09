@@ -151,6 +151,95 @@ function initSchema() {
 
     CREATE INDEX IF NOT EXISTS idx_doc_chunks_doc
       ON document_chunks(document_id);
+
+    -- Family Board posts (Phase 2): event/update/win posts shared across the family
+    -- Governance without surveillance: kids can post, admins moderate per family policy
+    CREATE TABLE IF NOT EXISTS family_posts (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL CHECK (type IN ('event', 'update', 'win')),
+      title TEXT NOT NULL,
+      body TEXT,
+      event_date TEXT,    -- ISO date string (YYYY-MM-DD) for events
+      event_time TEXT,    -- free-form time string (e.g., "6:30 PM")
+      location TEXT,
+      author_profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      status TEXT NOT NULL DEFAULT 'approved' CHECK (status IN ('pending', 'approved', 'declined')),
+      approved_by_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL,
+      approved_at TEXT,
+      declined_reason TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_family_posts_status ON family_posts(status);
+    CREATE INDEX IF NOT EXISTS idx_family_posts_created ON family_posts(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_family_posts_event_date ON family_posts(event_date);
+
+    -- Reactions on family board posts (emoji reactions, one per profile per emoji per post)
+    CREATE TABLE IF NOT EXISTS post_reactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      post_id TEXT NOT NULL REFERENCES family_posts(id) ON DELETE CASCADE,
+      profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      emoji TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now')),
+      UNIQUE (post_id, profile_id, emoji)
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_post_reactions_post ON post_reactions(post_id);
+
+    -- ─── Security: session tokens ────────────────────────────────────────────
+    -- Issued on successful PIN auth. Every protected API call carries one in
+    -- the Authorization header. Tokens are stored as SHA-256 hashes so a DB
+    -- dump does not leak active sessions.
+    CREATE TABLE IF NOT EXISTS auth_sessions (
+      id TEXT PRIMARY KEY,                                -- uuid
+      profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,                    -- sha256(token)
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      expires_at TEXT NOT NULL,                           -- absolute expiry
+      last_used_at TEXT NOT NULL DEFAULT (datetime('now')),
+      admin_verified_at TEXT,                             -- last fresh PIN verify (for Settings re-auth)
+      source_ip TEXT,
+      user_agent TEXT,
+      revoked INTEGER DEFAULT 0
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_token ON auth_sessions(token_hash);
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_profile ON auth_sessions(profile_id);
+    CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires ON auth_sessions(expires_at);
+
+    -- ─── Security: PIN attempt tracking ──────────────────────────────────────
+    -- Records every PIN attempt (success or failure) for rate limiting and
+    -- admin alerting. Old rows pruned periodically to keep the table bounded.
+    CREATE TABLE IF NOT EXISTS pin_attempts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      profile_id TEXT NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+      success INTEGER NOT NULL,                           -- 0 = failure, 1 = success
+      source_ip TEXT,
+      attempted_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_pin_attempts_profile_time
+      ON pin_attempts(profile_id, attempted_at DESC);
+
+    -- ─── Security: audit log ─────────────────────────────────────────────────
+    -- Records governance-relevant events. Append-only (never deleted, only
+    -- archived). Visible to admins in Settings → Audit Log.
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      actor_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL,
+      event_type TEXT NOT NULL,
+      target_type TEXT,                                   -- e.g. 'profile', 'post', 'memory'
+      target_id TEXT,
+      summary TEXT NOT NULL,
+      metadata JSON DEFAULT '{}',
+      source_ip TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_profile_id);
+    CREATE INDEX IF NOT EXISTS idx_audit_log_event ON audit_log(event_type);
   `);
 
   console.log("[db] Schema initialized");

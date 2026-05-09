@@ -3,6 +3,8 @@ const router = express.Router();
 const { v4: uuid } = require("uuid");
 const bcrypt = require("bcrypt");
 const { getDb, setConfig } = require("../lib/db");
+const auth = require("../lib/auth");
+const { requireAuth, requireFreshAdmin, clientIp } = require("../middleware/auth");
 
 const SALT_ROUNDS = 10;
 
@@ -66,25 +68,74 @@ router.get("/", (req, res) => {
   res.json(rows);
 });
 
-// POST /api/profiles/:id/auth — authenticate with PIN
+// POST /api/profiles/:id/auth — authenticate with PIN, issue session token
 router.post("/:id/auth", async (req, res) => {
   const { pin } = req.body;
+  const sourceIp = clientIp(req);
+  const userAgent = req.headers["user-agent"] || null;
+  const profileId = req.params.id;
+
   const profile = getDb()
     .prepare("SELECT id, name, role, pin_hash, guardrail_level, avatar_color FROM profiles WHERE id = ?")
-    .get(req.params.id);
+    .get(profileId);
 
   if (!profile) return res.status(404).json({ error: "Profile not found" });
 
-  // Profiles without a PIN (young children) auto-auth
-  if (!profile.pin_hash) {
-    return res.json({ authenticated: true, profile: { id: profile.id, name: profile.name, role: profile.role, guardrailLevel: profile.guardrail_level } });
+  // Check rate limit BEFORE verifying PIN (don't leak whether PIN matched under lockout)
+  const lockout = auth.getLockoutStatus(profileId);
+  if (lockout.lockedUntil) {
+    const waitMs = lockout.lockedUntil.getTime() - Date.now();
+    auth.auditLog("profile.auth_locked", `PIN lockout active for ${profile.name}`, {
+      actorProfileId: profileId,
+      targetType: "profile",
+      targetId: profileId,
+      sourceIp,
+      metadata: { waitMs, failureCount: lockout.failureCount },
+    });
+    return res.status(429).json({
+      error: "Too many failed attempts. Try again later.",
+      retryAfterSeconds: Math.ceil(waitMs / 1000),
+    });
   }
 
-  const match = await bcrypt.compare(String(pin), profile.pin_hash);
-  if (!match) return res.status(401).json({ error: "Invalid PIN" });
+  // Profiles without a PIN (young children) auto-auth
+  let pinOk;
+  if (!profile.pin_hash) {
+    pinOk = true;
+  } else {
+    pinOk = await bcrypt.compare(String(pin || ""), profile.pin_hash);
+  }
+
+  auth.recordPinAttempt(profileId, pinOk, sourceIp);
+
+  if (!pinOk) {
+    const postLock = auth.getLockoutStatus(profileId);
+    auth.auditLog("profile.auth_failed", `Failed PIN attempt for ${profile.name}`, {
+      actorProfileId: profileId,
+      targetType: "profile",
+      targetId: profileId,
+      sourceIp,
+      metadata: { failureCount: postLock.failureCount },
+    });
+    return res.status(401).json({
+      error: "Invalid PIN",
+      failuresInWindow: postLock.failureCount,
+    });
+  }
+
+  // Success — issue a session token
+  const session = auth.createSession(profileId, { sourceIp, userAgent });
+  auth.auditLog("profile.auth_success", `${profile.name} signed in`, {
+    actorProfileId: profileId,
+    targetType: "profile",
+    targetId: profileId,
+    sourceIp,
+  });
 
   res.json({
     authenticated: true,
+    token: session.token,
+    expiresAt: session.expiresAt,
     profile: {
       id: profile.id,
       name: profile.name,
@@ -92,6 +143,78 @@ router.post("/:id/auth", async (req, res) => {
       guardrailLevel: profile.guardrail_level,
       avatarColor: profile.avatar_color,
     },
+  });
+});
+
+// POST /api/profiles/:id/reverify — refresh admin freshness stamp (Settings re-auth)
+// Same PIN check as /auth, but reuses the existing session instead of making a new one.
+router.post("/:id/reverify", requireAuth, async (req, res) => {
+  const { pin } = req.body;
+  const sourceIp = clientIp(req);
+  const profileId = req.params.id;
+
+  // Can only reverify your own profile
+  if (req.session.profileId !== profileId) {
+    return res.status(403).json({ error: "Cannot reverify another profile" });
+  }
+
+  const profile = getDb()
+    .prepare("SELECT id, name, role, pin_hash FROM profiles WHERE id = ?")
+    .get(profileId);
+  if (!profile) return res.status(404).json({ error: "Profile not found" });
+
+  // Rate-limit reverify attempts too
+  const lockout = auth.getLockoutStatus(profileId);
+  if (lockout.lockedUntil) {
+    return res.status(429).json({
+      error: "Too many failed attempts. Try again later.",
+      retryAfterSeconds: Math.ceil((lockout.lockedUntil.getTime() - Date.now()) / 1000),
+    });
+  }
+
+  const pinOk = profile.pin_hash
+    ? await bcrypt.compare(String(pin || ""), profile.pin_hash)
+    : true;
+  auth.recordPinAttempt(profileId, pinOk, sourceIp);
+
+  if (!pinOk) {
+    auth.auditLog("profile.reverify_failed", `Failed admin re-auth for ${profile.name}`, {
+      actorProfileId: profileId,
+      targetType: "profile",
+      targetId: profileId,
+      sourceIp,
+    });
+    return res.status(401).json({ error: "Invalid PIN" });
+  }
+
+  auth.refreshAdminVerification(req.session.sessionId);
+  auth.auditLog("profile.reverify_success", `${profile.name} re-authenticated for admin action`, {
+    actorProfileId: profileId,
+    targetType: "profile",
+    targetId: profileId,
+    sourceIp,
+  });
+
+  res.json({ ok: true, verifiedAt: new Date().toISOString() });
+});
+
+// POST /api/profiles/logout — revoke current session
+router.post("/logout", requireAuth, (req, res) => {
+  auth.revokeSession(req.session.sessionId);
+  auth.auditLog("profile.logout", `${req.session.profile.name} signed out`, {
+    actorProfileId: req.session.profileId,
+    sourceIp: req.sourceIp,
+  });
+  res.json({ ok: true });
+});
+
+// GET /api/profiles/me — info about the current session
+router.get("/me", requireAuth, (req, res) => {
+  res.json({
+    profile: req.session.profile,
+    sessionId: req.session.sessionId,
+    adminVerifiedAt: req.session.adminVerifiedAt,
+    adminFresh: auth.isAdminVerificationFresh(req.session),
   });
 });
 
@@ -121,12 +244,28 @@ router.post("/:id/pin", async (req, res) => {
   res.json({ success: true });
 });
 
-// DELETE /api/profiles/:id — remove a profile (admin only in future)
-router.delete("/:id", (req, res) => {
+// DELETE /api/profiles/:id — remove a profile (admin w/ fresh verify only)
+router.delete("/:id", requireFreshAdmin, (req, res) => {
+  const target = getDb()
+    .prepare("SELECT id, name FROM profiles WHERE id = ?")
+    .get(req.params.id);
+  if (!target) return res.status(404).json({ error: "Not found" });
+
   const result = getDb()
     .prepare("DELETE FROM profiles WHERE id = ?")
     .run(req.params.id);
-  if (result.changes === 0) return res.status(404).json({ error: "Not found" });
+
+  auth.auditLog("profile.deleted", `Profile ${target.name} deleted`, {
+    actorProfileId: req.session.profileId,
+    targetType: "profile",
+    targetId: target.id,
+    sourceIp: req.sourceIp,
+    metadata: { deletedProfileName: target.name },
+  });
+
+  // Revoke any active sessions for that profile
+  auth.revokeAllForProfile(req.params.id);
+
   res.json({ ok: true });
 });
 
