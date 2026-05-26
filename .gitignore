@@ -45,3 +45,9 @@ kinward-site-preview.html
 install-flow.html
 INSTALL-TEST-POSTMORTEM.md
 kinward.vbs
+
+# Signing keys — NEVER commit private keys
+*.key
+*.pem
+signing.key
+~/.kinward/

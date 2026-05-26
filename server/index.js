@@ -24,6 +24,7 @@ app.use("/api/memory", require("./routes/memory"));
 app.use("/api/board", require("./routes/board"));
 app.use("/api/dashboard", require("./routes/dashboard"));
 app.use("/api/audit", require("./routes/audit"));
+app.use("/api/updates", require("./routes/updates"));
 
 // Periodic auth cleanup — prune expired sessions and old PIN attempts
 const authLib = require("./lib/auth");

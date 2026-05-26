@@ -12,12 +12,16 @@
     "reset": "node scripts/reset.js",
     "reset:hard": "node scripts/reset.js --wipe-models",
     "test:timed": "node scripts/timed-run.js",
+    "test": "node --test 'server/test/*.test.js'",
     "client:build": "cd client && npm run build",
     "electron:rebuild": "node scripts/electron-rebuild.js",
     "electron:rebuild:system": "node scripts/electron-rebuild.js --system",
     "electron:dev": "npm run client:build && npm run electron:rebuild && electron .",
     "electron:build": "npm run client:build && npm run electron:rebuild && electron-builder",
     "electron:dev:hot": "ELECTRON_DEV=1 npm run electron:rebuild && electron .",
+    "keypair:gen": "node scripts/keypair-gen.js",
+    "bundle:sign": "node scripts/sign-bundle.js",
+    "bundle:verify": "node scripts/verify-bundle.js",
     "postinstall": "echo 'Run npm run electron:rebuild before launching Electron'"
   },
   "dependencies": {

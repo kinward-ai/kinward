@@ -164,6 +164,20 @@ export const deletePost = (postId) =>
 export const reactToPost = (postId, emoji) =>
   apiJson(`/api/board/${postId}/react`, { method: "POST", body: { emoji } });
 
+// ─── Updates ───────────────────────────────────────────────────────────────
+export const getUpdateStatus = (force = false) =>
+  apiJson(`/api/updates/status${force ? "?force=1" : ""}`);
+export const getCurrentVersion = () => apiJson("/api/updates/current-version");
+
+// Context bundles
+export const getAppliedBundles = () => apiJson("/api/updates/bundles");
+export const previewBundle = (version) =>
+  apiJson(`/api/updates/bundles/preview/${encodeURIComponent(version)}`);
+export const applyBundle = (version) =>
+  apiJson("/api/updates/bundles/apply", { method: "POST", body: { version } });
+export const rollbackBundle = () =>
+  apiJson("/api/updates/bundles/rollback", { method: "POST" });
+
 // ─── Audit log ─────────────────────────────────────────────────────────────
 export const getAuditLog = (opts = {}) => {
   const params = new URLSearchParams();

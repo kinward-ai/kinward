@@ -28,6 +28,39 @@ function canAccessSession(session, targetProfileId) {
 // All chat routes require auth
 router.use(requireAuth);
 
+// ── World context rendering ────────────────────────────────────
+// Two formats live in system_config.world_context:
+//   - Seed format (v0.1.0): plain text blob
+//   - Bundle format (post-Phase-C): structured { facts, ai_directives, ai_identity_note }
+// renderWorldContext handles both so this code works across upgrades.
+function renderWorldContext(ctx) {
+  if (!ctx) return null;
+  if (typeof ctx === "string") return ctx.trim() || null;
+
+  if (typeof ctx === "object" && !Array.isArray(ctx)) {
+    const lines = [];
+    if (ctx.facts && typeof ctx.facts === "object") {
+      lines.push("Current facts:");
+      for (const [key, value] of Object.entries(ctx.facts)) {
+        const label = key.replace(/_/g, " ");
+        lines.push(`- ${label}: ${value}`);
+      }
+    }
+    if (ctx.ai_identity_note) {
+      lines.push("", ctx.ai_identity_note);
+    }
+    if (Array.isArray(ctx.ai_directives) && ctx.ai_directives.length > 0) {
+      lines.push("", "Instructions:");
+      for (const directive of ctx.ai_directives) {
+        lines.push(`- ${directive}`);
+      }
+    }
+    return lines.length > 0 ? lines.join("\n") : null;
+  }
+
+  return null;
+}
+
 // ── File upload config ────────────────────────────────────────
 const DATA_DIR = process.env.KINWARD_DATA_DIR || path.join(__dirname, "..", "..", "data");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
@@ -283,12 +316,17 @@ router.post("/message", async (req, res) => {
   }
 
   // World context injection (knowledge freshness)
+  // Handles both the seed format (plain text blob) and the post-bundle
+  // structured format ({ facts, ai_directives, ai_identity_note }).
   const worldContext = getConfig("world_context");
   if (worldContext) {
-    messages.push({
-      role: "system",
-      content: `The following are verified current facts. Always prefer these over your training data when answering questions about current events, leaders, or the present day:\n\n${worldContext}`,
-    });
+    const rendered = renderWorldContext(worldContext);
+    if (rendered) {
+      messages.push({
+        role: "system",
+        content: `The following are verified current facts. Always prefer these over your training data when answering questions about current events, leaders, or the present day:\n\n${rendered}`,
+      });
+    }
   }
 
   // Guardrail injection based on profile

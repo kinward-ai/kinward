@@ -240,6 +240,31 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_profile_id);
     CREATE INDEX IF NOT EXISTS idx_audit_log_event ON audit_log(event_type);
+
+    -- ─── Context bundles ─────────────────────────────────────────────────────
+    -- History of signed knowledge-context bundles that have been applied to
+    -- this Kinward install. Every apply (and rollback) is recorded. Bundles
+    -- are append-only; rollback creates a new row referencing the bundle it
+    -- restored from (rollback_of_id).
+    --
+    -- The "active" bundle is the one whose payload is currently mirrored in
+    -- system_config.world_context.
+    CREATE TABLE IF NOT EXISTS context_bundles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      version TEXT NOT NULL,
+      signed_by TEXT NOT NULL,
+      released_at TEXT,
+      signature TEXT NOT NULL,
+      payload JSON NOT NULL,
+      applied_at TEXT NOT NULL DEFAULT (datetime('now')),
+      applied_by_profile_id TEXT REFERENCES profiles(id) ON DELETE SET NULL,
+      active INTEGER NOT NULL DEFAULT 1,                  -- 1 = current, 0 = superseded/rolled-back
+      rollback_of_id INTEGER REFERENCES context_bundles(id) ON DELETE SET NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_context_bundles_version ON context_bundles(version);
+    CREATE INDEX IF NOT EXISTS idx_context_bundles_active ON context_bundles(active);
+    CREATE INDEX IF NOT EXISTS idx_context_bundles_applied ON context_bundles(applied_at DESC);
   `);
 
   console.log("[db] Schema initialized");

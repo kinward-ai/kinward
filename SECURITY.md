@@ -145,6 +145,51 @@ The items below reflect what Kinward ships with *right now*, before the current 
 
 Newest first.
 
+### 2026-05-24 — Signed context bundles (Phases A + B + C)
+
+Shipped the signed-update system designed in the Updates scoping doc. The
+trust chain is now end-to-end:
+
+```
+maintainer signs locally
+    ↓ ( Ed25519 private key on dev machine only, ~/.kinward/signing.key )
+bundle committed to kinward-ai/kinward-context (public repo)
+    ↓ ( raw.githubusercontent.com HTTPS )
+Kinward app fetches manifest + bundle
+    ↓ ( bundle-verify.js — same canonicalization the signer used )
+signature verified against baked-in public key
+    ↓ ( server/lib/trusted-keys.js, replaceable only via app version update )
+user previews diff in UI
+    ↓ ( shows before/after for every changed key in payload )
+user clicks Apply (requireFreshAdmin)
+    ↓ ( 5-min admin freshness window, PIN re-auth if stale )
+written to system_config + context_bundles row + audit_log entry
+```
+
+**New primitives shipped:**
+- `server/lib/trusted-keys.js` — baked-in Ed25519 public keys per signer
+- `server/lib/bundle-verify.js` — canonical-JSON Ed25519 verification
+- `server/lib/context-bundles.js` — fetch/verify/apply/rollback runtime
+- `scripts/keypair-gen.js`, `scripts/sign-bundle.js`, `scripts/verify-bundle.js`
+  — developer tools for producing bundles
+- `context_bundles` DB table with append-only history + active flag
+- `requireFreshAdmin` gates on apply + rollback
+- Audit events: `updates.checked`, `updates.bundle_applied`,
+  `updates.bundle_rolled_back`, `updates.bundle_verification_failed`
+
+**Threat model additions:**
+- *kinward-ai/kinward-context repo compromise* — attacker pushes a malicious
+  bundle. Mitigated: signature check against private key they don't have.
+- *Maintainer private key compromise* — attacker can sign arbitrary bundles.
+  Mitigation: rotate the baked-in public key via an app version update.
+  Old installs continue verifying with the old key until users upgrade.
+- *Transport tampering between GitHub and user* — HTTPS protects in transit,
+  signature check defends against any successful tamper.
+- *Replay of an old bundle* — currently no replay protection beyond
+  "manifest publishes latest." Considered acceptable for v1; can add a
+  `minimum_version` floor in the manifest if a buggy old bundle needs to
+  be retired.
+
 ### 2026-04-28 — Auth sprint refactor + extended fresh-admin coverage
 
 Organizational cleanup pass before merging the security branch to main.

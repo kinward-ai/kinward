@@ -65,10 +65,20 @@
 - Scheduled auto-backup option (daily/weekly) to a user-chosen directory
 - Restore from backup in settings
 
-### 2.5 Simple Update Mechanism
+### 2.5 Simple Update Mechanism ✅
 - Version check against GitHub releases on settings page
 - "Update available" banner with one-click pull + restart
 - Changelog summary shown before update
+
+### 2.6 Signed Context Bundles ✅
+- Separate `kinward-ai/kinward-context` public repo for curated knowledge bundles
+- Ed25519 signing; public key baked into the app, private key kept by maintainer
+- Settings → 🔄 Updates panel with check / preview / apply / rollback
+- Append-only `context_bundles` history table with full audit trail
+- Fresh-admin re-auth required before any apply or rollback
+- See `docs/BUNDLE_AUTHORING.md` for the monthly publishing cadence
+
+> 2.5 and 2.6 shipped together as the "Updates" feature, sharing one Settings panel.
 
 ---
 
