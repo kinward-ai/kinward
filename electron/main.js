@@ -390,6 +390,31 @@ app.whenReady().then(async () => {
     ollamaManager = require("./ollama-manager");
     const ollamaStatus = await ollamaManager.ensureOllama();
     console.log(`[electron] Ollama: ${ollamaStatus.running ? "running" : "not available"}`);
+
+    // First-launch experience: if Ollama isn't installed at all, show a
+    // friendly native dialog instead of failing silently. This is the path
+    // a non-technical user takes the first time they open Kinward.
+    if (!ollamaStatus.installed) {
+      const { shell } = require("electron");
+      const choice = dialog.showMessageBoxSync({
+        type: "info",
+        title: "Welcome to Kinward",
+        message: "One quick thing before we get started.",
+        detail:
+          "Kinward needs Ollama to run AI models on your computer. " +
+          "It's free, takes about a minute to install, and once it's set up " +
+          "you'll never have to think about it again.\n\n" +
+          "Click 'Get Ollama' to download it, install it, then come back to Kinward.",
+        buttons: ["Get Ollama (opens browser)", "I'll do it later"],
+        defaultId: 0,
+        cancelId: 1,
+      });
+      if (choice === 0) {
+        await shell.openExternal("https://ollama.com/download");
+      }
+      // Don't quit — the user can come back to the app once they've installed.
+      // The OllamaStatus banner in the UI will guide them after launch.
+    }
   } catch (err) {
     console.warn("[electron] Ollama manager not available:", err.message);
   }

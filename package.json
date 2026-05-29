@@ -1,9 +1,14 @@
 {
   "name": "kinward",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Your Family's AI Guardian — local-first AI platform",
   "private": true,
   "main": "electron/main.js",
+  "author": {
+    "name": "Kinward",
+    "email": "hello@kinward.ai"
+  },
+  "homepage": "https://kinward.ai",
   "scripts": {
     "start": "node server/index.js",
     "dev": "node server/index.js",

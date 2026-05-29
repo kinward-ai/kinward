@@ -51,3 +51,6 @@ kinward.vbs
 *.pem
 signing.key
 ~/.kinward/
+
+# Electron build output (installers + unpacked apps)
+dist-electron/

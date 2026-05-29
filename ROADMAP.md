@@ -80,6 +80,37 @@
 
 > 2.5 and 2.6 shipped together as the "Updates" feature, sharing one Settings panel.
 
+### 2.7 Privacy Modes 🚧
+*Publicly committed on kinward.ai — "rolling out in the next release."*
+
+Three discrete privacy postures the family admin can choose from in Settings.
+Each mode is a coherent bundle of network/auth defaults so families don't
+have to reason about individual toggles.
+
+- **Open** (current default)
+  - LAN-accessible: any device on home Wi-Fi can connect with a valid PIN
+  - All API endpoints listen on `0.0.0.0:3210`
+  - No additional pairing required for new devices
+  - Suitable for: families who trust everyone on their home network
+
+- **Gated**
+  - LAN-accessible but new devices require admin pairing
+  - First connection from a new IP triggers a 6-digit pairing code on the admin device
+  - Admin approves → that device gets its own session token
+  - Suitable for: families with frequent guests, shared Wi-Fi with neighbors
+
+- **Fully private**
+  - Listens on `127.0.0.1` only — no LAN exposure at all
+  - PWA / phone access disabled (or requires manual ngrok-style tunnel)
+  - Suitable for: maximum-privacy households, sensitive use cases
+
+Implementation notes:
+- New `system_config` row: `privacy_mode` (open / gated / private)
+- New `paired_devices` table for Gated mode (device_id, profile_id, approved_at, last_seen)
+- Settings → 🔒 Privacy panel with mode picker + explainer of each
+- Mode change is a destructive action — requires fresh admin re-auth
+- Audit log entry on every mode change
+
 ---
 
 ## Phase 3 — Superpowers (Differentiation Features)
@@ -148,12 +179,39 @@
 
 ---
 
-## Suggested Starting Order
+## Current Priorities (as of May 2026)
 
-**Phase 1 is complete.** The on-ramp is solid — install-to-chat in under 5 minutes is shipping. Now the priority is making Kinward a daily habit.
+**Phase 1 complete. Phase 2 majority shipped.** What's live in the public alpha as of v0.2.0:
+- ✅ Electron desktop app + 6 on-ramp items
+- ✅ 2.1 Family Dashboard + Family Board with moderation
+- ✅ 2.5 + 2.6 Updates (app version + signed context bundles)
+- ✅ Security hardening pass: session tokens, PIN lockout, audit log, fresh-admin gates, 39 tests
 
-1. **2.1 Family Dashboard** — gives users a reason to open the app beyond chat; surfaces memory highlights and recent activity
-2. **2.3 Shared Family Memory** — the first truly collaborative feature; turns Kinward from "my AI" into "our AI"
-3. **2.5 Simple Update Mechanism** — essential infrastructure so shipped families stay current without manual steps
+### Next up — confirmed direction
 
-Then continue with the rest of Phase 2 (Bookmarks, Export/Backup). Phases 3 and 4 can be interleaved based on what users ask for most.
+**Sprint focus (next 2–3 weeks):**
+
+1. **2.7 Privacy Modes** 🚧 *— public commitment, must ship soon*
+   - Open / Gated / Fully Private — see spec above
+   - Closes the "LAN pairing" gap from SECURITY.md medium-priority audit
+   - Small, well-scoped, visible to users
+2. **2.3 Shared Family Memory** — extends the Family Board pattern that families already love. Highest user-value follow-on.
+3. **DB Encryption at Rest** *(not in original roadmap — flagged in SECURITY.md as high-priority)*
+   - SQLCipher migration so on-disk DB is unreadable without the admin passphrase
+   - Document encryption rides on the same key derivation
+   - Background work, mostly invisible to users, but real defensive value
+
+**Then:**
+
+4. **2.4 Data Export & Backup UX** — signed backup bundles, leveraging the Ed25519 infrastructure from 2.6
+5. **2.2 Conversation Bookmarks & Search** — daily-driver quality-of-life
+
+### Phase 3 — staged for after Phase 2 closeout
+
+Once Phase 2 is fully done, the marquee Phase 3 candidate is **3.5 Meeting AI** — Whisper + transcript + analyst. Built from the local AI meetup conversation. Will pair well with a real product launch / press push.
+
+Other Phase 3 items (Voice I/O, Routines, Parental Insights, Explain Mode) get prioritized by what families ask for once they're actually using Kinward daily.
+
+### Phase 4 — distant-but-known
+
+Concurrent inference, multi-model hot-swap, plugin system. None blocking; all important for scale beyond the alpha audience.

@@ -16,9 +16,10 @@ const STATES = {
   offline: {
     icon: "💤",
     title: "Lumina is sleeping",
-    detail: "Ollama isn't running. Start it or check that it's installed.",
+    detail: "Ollama isn't running. If you haven't installed Ollama yet, grab it from ollama.com — it's free and takes about a minute.",
     color: BRAND.orange,
     bg: "#FFF5EE",
+    externalLink: { label: "Get Ollama →", url: "https://ollama.com/download" },
   },
   "no-models": {
     icon: "📦",
@@ -93,7 +94,30 @@ export function OllamaStatus({ onRetry }) {
         <div style={{ fontWeight: 600, color: state.color, marginBottom: 2 }}>
           {state.title}
         </div>
-        <div style={{ color: BRAND.slate, fontSize: 13 }}>{state.detail}</div>
+        <div style={{ color: BRAND.slate, fontSize: 13 }}>
+          {state.detail}
+          {state.externalLink && (
+            <>
+              {" "}
+              <a
+                href={state.externalLink.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{
+                  color: state.color,
+                  fontFamily: "'DM Mono', monospace",
+                  fontSize: 12,
+                  fontWeight: 500,
+                  textDecoration: "none",
+                  marginLeft: 4,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {state.externalLink.label}
+              </a>
+            </>
+          )}
+        </div>
       </div>
       <button
         onClick={handleRetry}
