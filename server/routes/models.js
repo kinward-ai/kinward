@@ -107,15 +107,9 @@ router.post("/install", requireFreshAdmin, async (req, res) => {
     )
     .run(id, ollamaName, displayName || ollamaName, category, 0);
 
-  // Store category config (temperature only — system prompts are always built
-  // dynamically from ai_identity + category so name changes take effect immediately)
-  const configId = uuid();
-  getDb()
-    .prepare(
-      `INSERT OR REPLACE INTO model_configs (id, model_id, category, temperature)
-       VALUES (?, ?, ?, ?)`
-    )
-    .run(configId, id, category, category === "creative" ? 0.9 : 0.7);
+  // No model_configs row at install: system prompts are built dynamically
+  // from ai_identity, and temperature/max_tokens come from the chat_modes
+  // row. model_configs exists only for future explicit per-model overrides.
 
   // Start pull — stream progress to any connected WebSocket clients
   const wss = req.app.get("wss");

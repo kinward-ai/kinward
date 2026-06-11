@@ -19,6 +19,7 @@ const CATEGORY_TABS = [
   { id: "kids",     label: "Kids",        icon: "🌟" },
   { id: "research", label: "Research",    icon: "🔍" },
   { id: "creative", label: "Creative",    icon: "✨" },
+  { id: "coding",   label: "Coding",      icon: "💻" },
 ];
 
 const TIER_LABELS = {

@@ -3,6 +3,7 @@ import { api, API, authFetch, BRAND as B, ShieldIcon } from "./components/shared
 import { ModelManager } from "./components/ModelManager";
 import AuditLogSection from "./components/AuditLogSection";
 import UpdatesSection from "./components/UpdatesSection";
+import LANSetupSection from "./components/LANSetupSection";
 
 /* ─────────────────────────────────────────────
    KINWARD SETTINGS PANEL
@@ -29,6 +30,7 @@ const SECTIONS = [
   { id: "world", label: "World Context", icon: "🌍" },
   { id: "models", label: "AI Models", icon: "📦" },
   { id: "updates", label: "Updates", icon: "🔄" },
+  { id: "lan", label: "Add a Device", icon: "📱" },
   { id: "profiles", label: "Family", icon: "👥" },
   { id: "audit", label: "Audit Log", icon: "📋" },
   { id: "about", label: "About", icon: "🛡️" },
@@ -689,6 +691,8 @@ export default function KinwardSettings({ user, onBack }) {
         return <ModelManager />;
       case "updates":
         return <UpdatesSection />;
+      case "lan":
+        return <LANSetupSection />;
       case "profiles":
         return <ProfilesSection />;
       case "audit":

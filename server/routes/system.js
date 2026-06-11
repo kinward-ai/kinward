@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const db = require("../lib/db");
 const ollama = require("../lib/ollama");
+const network = require("../lib/network");
+const { requireAuth } = require("../middleware/auth");
 
 // ── Default world context (seeded on first read) ─────────────
 const DEFAULT_WORLD_CONTEXT = `# World Context — Last updated: March 2026
@@ -15,12 +17,14 @@ These are current facts. Use them when answering questions about the present.
 - AI models like yourself may have outdated training data. When a user asks about current events, leaders, or recent news, prefer the facts listed here over your training data.
 - If you don't know something current and it's not listed here, say so honestly rather than guessing.`;
 
+const APP_VERSION = require("../../package.json").version;
+
 // GET /api/system/status — health check + setup state
 router.get("/status", async (req, res) => {
   const ollamaUp = await ollama.isOllamaRunning();
   res.json({
     kinward: true,
-    version: "0.1.0",
+    version: APP_VERSION,
     setupComplete: db.isSetupComplete(),
     ollamaRunning: ollamaUp,
     envMode: db.getConfig("env_mode") || null,
@@ -177,6 +181,28 @@ router.post("/backup", (req, res) => {
   } catch (err) {
     res.status(500).json({ error: "Backup failed: " + err.message });
   }
+});
+
+/**
+ * GET /api/system/lan-info
+ *
+ * Returns the LAN URL family devices should hit to reach Kinward. Powers the
+ * Settings → 📱 Add a Device QR code + manual-entry display.
+ *
+ * Requires auth — connection info shouldn't be reachable by anyone who just
+ * happens to land on the host. (Once a Privacy Mode is set to Gated, this
+ * endpoint will additionally gate which IPs can request pairing tokens.)
+ */
+router.get("/lan-info", requireAuth, (req, res) => {
+  const port = process.env.PORT || 3210;
+  const lanIp = network.getLocalIP();
+  const url = lanIp && lanIp !== "0.0.0.0" ? `http://${lanIp}:${port}` : null;
+  res.json({
+    lanIp: lanIp && lanIp !== "0.0.0.0" ? lanIp : null,
+    port: Number(port),
+    url,
+    detected: !!url,
+  });
 });
 
 module.exports = router;

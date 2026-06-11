@@ -179,7 +179,59 @@ Implementation notes:
 
 ---
 
-## Current Priorities (as of May 2026)
+## Current Priorities (as of June 2026)
+
+### Just shipped (early June)
+- **chat_modes refactor + Coding + Tutor v1** (2026-06-09) — conversation
+  modes are now `chat_modes` table rows (`source` = built-in / family /
+  bundle), not hardcoded enums. Built-ins re-sync from code on boot;
+  role visibility enforced server-side (`GET /api/chat/modes`). Shipped on
+  the abstraction: 💻 Coding mode + Qwen 2.5 Coder 7B/14B in the catalog
+  (coding-category-only per CONCEPTS §5), 📚 Homework Tutor v1 (Socratic,
+  doc-upload encouragement — v2/v3 stay parked per CONCEPTS §2),
+  syntax-highlighted code blocks, source-file uploads
+  (`.py .js .ts .tsx .rs .go`), and conversation-history loading when
+  reopening a session. 12 new tests (51 total).
+- **v0.2.0 Mac installer** — `Kinward-0.2.0-universal.dmg` on GitHub Releases, universal binary
+- **First-launch Ollama dialog** — native popup with "Get Ollama" if missing
+- **Settings → 📱 Add a Device** — QR-code mobile setup flow, real-world tested
+
+### Next sprint
+
+1. **v0.2.1 hotfix — URGENT** — the public v0.2.0 DMG fails to launch on
+   current macOS ("spawn ENOTDIR": server fork used a cwd inside app.asar;
+   newer macOS rejects non-directory cwd). Fix is on main (electron/main.js,
+   2026-06-09). Ship a rebuilt installer ASAP, signed or not, and note the
+   known issue on the kinward.ai download page.
+2. **Apple Developer ID + code signing** — purchase + setup, fold into
+   v0.2.1 if timing allows. Public commitment from kinward.ai download page.
+3. **Windows installer** — add `electron/icons/icon.ico`, test electron-builder
+   NSIS output, attach to v0.2.1 release.
+4. **2.7 Privacy Modes** — open / gated / fully private. Public commitment
+   on kinward.ai. The QR-code mobile setup just shipped is the natural
+   front-end for Gated mode pairing.
+5. **Dashboard home refresh** (from 2026-06-11 discussion):
+   - **Family Board windowing** — main feed shows upcoming events (next 7
+     days) + recent updates/wins (~last 2 weeks); older posts collapse
+     behind a "Past posts" view. Computed filter only — nothing deleted,
+     no schema change (provenance principle). ~Half a day; can ship alone.
+   - **Mode carousel** — replace the tile grid with a horizontal
+     scroll-snap carousel of rectangular mode cards (center card slightly
+     enlarged). Renders straight from GET /api/chat/modes — role-filtered,
+     colors/icons from the chat_modes table — so it scales as families add
+     modes. CSS scroll-snap, no library, touch-friendly for the PWA.
+   - Board strip stays on top but compact; carousel becomes the visual
+     centerpiece; recent conversations below.
+
+### Watching (build only if signal earns it)
+
+- **Tutor mode v2 (study plans)** — parked in `docs/CONCEPTS.md` §2.
+  Trigger: family uses Tutor weekly for 4+ weeks AND asks for progress tracking.
+- **Tutor mode v3 (interactive activities)** — parked. Trigger: real demand
+  from real users for "make me a quiz" type behavior.
+- **2.8 Memory Architecture & Continuity** — drafted; the "new body, same
+  memories" invariant. Build after Privacy Modes if no higher-leverage work
+  has emerged from user signal.
 
 **Phase 1 complete. Phase 2 majority shipped.** What's live in the public alpha as of v0.2.0:
 - ✅ Electron desktop app + 6 on-ramp items

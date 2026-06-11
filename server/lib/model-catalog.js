@@ -17,7 +17,7 @@
  *   3. Set isNew: true if within ~60 days of release
  *   4. Commit & push — users see it on next app update
  *
- * Last reviewed: 2026-04-02
+ * Last reviewed: 2026-06-09
  */
 
 const CATALOG = [
@@ -217,6 +217,40 @@ const CATALOG = [
       "Cohere's creative powerhouse. Exceptional long-form writing, nuanced prose, and imaginative storytelling.",
     addedDate: "2024-03-01",
     featured: false,
+  },
+
+  // ─── Coding ────────────────────────────────────────────────────────────────
+  // Policy note (docs/CONCEPTS.md §5): Qwen 2.5 Coder is recommended for the
+  // coding category ONLY. It's trained by a Chinese AI lab with documented
+  // political-topic biases that matter for general/kids/research chat but are
+  // largely orthogonal to code. Be honest about this in the description —
+  // no hiding it, no fearmongering.
+
+  {
+    ollama: "qwen2.5-coder:7b",
+    display: "Qwen 2.5 Coder 7B",
+    category: "coding",
+    sizeGb: 4.7,
+    sizeDisplay: "4.7 GB",
+    minTier: "basic",
+    tags: ["coding", "fast", "qwen"],
+    description:
+      "The strongest local coding model at this size — punches far above its weight on real programming tasks. Trained by a Chinese AI lab (Alibaba) and has known political-topic biases that can affect general chat, so we recommend it for the Coding category only.",
+    addedDate: "2026-06-09",
+    featured: true,
+  },
+  {
+    ollama: "qwen2.5-coder:14b",
+    display: "Qwen 2.5 Coder 14B",
+    category: "coding",
+    sizeGb: 9,
+    sizeDisplay: "9 GB",
+    minTier: "good",
+    tags: ["coding", "reasoning", "qwen"],
+    description:
+      "Best-in-class local coding — excellent at writing, explaining, and debugging real code across many languages. Trained by a Chinese AI lab (Alibaba) and has known political-topic biases that can affect general chat, so we recommend it for the Coding category only.",
+    addedDate: "2026-06-09",
+    featured: true,
   },
 ];
 

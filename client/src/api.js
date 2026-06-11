@@ -37,6 +37,7 @@ export const getStatus = () => apiJson("/api/system/status");
 export const getHardware = () => apiJson("/api/system/hardware");
 export const autoDetect = () => apiJson("/api/system/auto-detect");
 export const getOllamaStatus = () => apiJson("/api/system/ollama-status");
+export const getLanInfo = () => apiJson("/api/system/lan-info");
 export const setConfig = (key, value) =>
   apiJson("/api/system/config", { method: "POST", body: { key, value } });
 export const completeSetup = () =>
@@ -99,6 +100,7 @@ export const deleteModel = (id) =>
   apiJson(`/api/models/${id}`, { method: "DELETE" });
 
 // ─── Chat ──────────────────────────────────────────────────────────────────
+export const getChatModes = () => apiJson("/api/chat/modes");
 export const getSessions = () => apiJson("/api/chat/sessions");
 export const createSession = (category) =>
   apiJson("/api/chat/sessions", { method: "POST", body: { category } });

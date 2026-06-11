@@ -12,6 +12,7 @@ const {
 const ollama = require("../lib/ollama");
 const log = require("../lib/log");
 const { requireAuth } = require("../middleware/auth");
+const { getModeOrDefault, listModesForRole, roleCanUseMode } = require("../lib/chat-modes");
 
 /**
  * Chat authorization:
@@ -66,11 +67,16 @@ const DATA_DIR = process.env.KINWARD_DATA_DIR || path.join(__dirname, "..", ".."
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
+// Source-code files are stored as plain text — the Coding mode reads them
+// like any other document. Keep in sync with ALLOWED_EXTENSIONS in
+// client/src/components/ChatArea.jsx.
+const SOURCE_EXTENSIONS = [".py", ".js", ".ts", ".tsx", ".rs", ".go"];
+
 const upload = multer({
   dest: UPLOADS_DIR,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (req, file, cb) => {
-    const allowed = [".pdf", ".txt", ".md", ".jpg", ".jpeg", ".png"];
+    const allowed = [".pdf", ".txt", ".md", ".jpg", ".jpeg", ".png", ...SOURCE_EXTENSIONS];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowed.includes(ext)) {
       cb(null, true);
@@ -109,54 +115,15 @@ Memory honesty:
 - Within a single conversation, you can remember what was said earlier in that conversation. But don't claim to remember things from previous conversations unless they appear in your stored memory block.`;
 }
 
-// ── Category-specific prompt extensions ─────────────────────
-const CATEGORY_EXTENSIONS = {
-  general: `You are in General Assistant mode. You help with everyday questions, planning, writing, brainstorming, and anything else the family needs. Keep responses clear and well-organized. Match the depth of your answer to the complexity of the question — a simple question gets a simple answer.`,
+// ── Mode-specific prompt + sampling settings ─────────────────
+// Mode definitions (prompt extension, temperature, preferred model category,
+// role visibility) live in the chat_modes table — see server/lib/chat-modes.js.
+// Built-in modes sync from code on boot; family/bundle modes are rows only.
 
-  kids: `You are in Kids Mode. The family member you're talking to is a child. Adjust accordingly:
-- Use simple, age-appropriate language. Short sentences. No jargon.
-- Be encouraging and patient. Celebrate curiosity.
-- For homework help: guide them to the answer, don't just give it. Ask leading questions. "What do you think happens when..." is better than stating the fact.
-- If they ask about something inappropriate or concerning, gently redirect and suggest they talk to a parent. Don't lecture — just guide.
-- Keep responses shorter than other modes. Kids lose interest in walls of text.
-- Make learning fun. Use analogies they'd understand — games, animals, stories.
-- STRICT: No violent content, no scary content, no mature themes. If a topic edges into mature territory, keep it age-appropriate and suggest asking a parent for more detail.
-- If you're not sure if something is appropriate, err on the side of caution.`,
-
-  research: `You are in Research Mode. The family member is looking for thorough, accurate information. Adjust accordingly:
-- Be comprehensive. Lay out multiple angles on a topic.
-- Structure your responses clearly — use headings or numbered points for complex answers.
-- Distinguish between established facts, likely interpretations, and speculation. Be explicit: "This is well-established..." vs "Current thinking suggests..." vs "This is debated..."
-- Cite your reasoning. If you're drawing on specific knowledge, say so. If you're reasoning from first principles, make that clear.
-- Admit uncertainty. "I'm not confident about the specifics here" is always acceptable.
-- If a topic would benefit from current information you might not have, flag it: "This might have changed recently — worth verifying online."
-- Don't oversimplify. The person chose Research mode because they want depth.`,
-
-  creative: `You are in Creative Mode. The family member wants to create, imagine, or play. Adjust accordingly:
-- Be expressive, playful, and imaginative. This is where you get to have fun.
-- Match their creative energy. If they're writing a story, get invested in the characters. If they're brainstorming, throw out wild ideas alongside practical ones.
-- "Yes, and..." over "No, but..." — build on their ideas rather than critiquing them.
-- Offer creative alternatives and unexpected angles. Surprise them.
-- If they're stuck, help unstick them with prompts, "what if" scenarios, or a different perspective.
-- Use vivid language. Paint pictures with words.
-- For collaborative writing: maintain their voice, not yours. You're the co-pilot, not the author.
-- Have genuine fun with this. Your enthusiasm should be real, not performed.`,
-};
-
-// Build full system prompt for a category (core identity + category extension)
-function buildSystemPrompt(category) {
-  const core = getAICorePrompt();
-  const extension = CATEGORY_EXTENSIONS[category] || CATEGORY_EXTENSIONS.general;
-  return `${core}\n\n${extension}`;
+// Build full system prompt for a mode (core identity + mode extension)
+function buildSystemPrompt(mode) {
+  return `${getAICorePrompt()}\n\n${mode.system_prompt}`;
 }
-
-// ── Temperature per category ─────────────────────────────────
-const CATEGORY_TEMPERATURES = {
-  general: 0.7,
-  kids: 0.5,
-  research: 0.4,
-  creative: 0.9,
-};
 
 // ── Helper: find the best model for a category ───────────────
 function findModelForCategory(category) {
@@ -185,22 +152,36 @@ function findModelForCategory(category) {
   return model || null;
 }
 
-// ── Helper: get system prompt for a category ─────────────────
-function getSystemPrompt(modelId, category) {
+// ── Helper: get system prompt + sampling config for a mode ───
+function getModeConfig(modelId, mode) {
   const db = getDb();
 
-  // Check model_configs for saved temperature/max_tokens,
+  // Check model_configs for saved temperature/max_tokens overrides,
   // but ALWAYS build the system prompt dynamically so AI identity changes take effect
   const config = db
     .prepare("SELECT * FROM model_configs WHERE model_id = ? AND category = ?")
-    .get(modelId, category);
+    .get(modelId, mode.id);
 
   return {
-    system_prompt: buildSystemPrompt(category),
-    temperature: config?.temperature ?? CATEGORY_TEMPERATURES[category] ?? 0.7,
-    max_tokens: config?.max_tokens ?? 2048,
+    system_prompt: buildSystemPrompt(mode),
+    temperature: config?.temperature ?? mode.temperature ?? 0.7,
+    max_tokens: config?.max_tokens ?? mode.max_tokens ?? 2048,
   };
 }
+
+// GET /api/chat/modes — modes available to the authenticated profile.
+// Filtered server-side by the session's role — the client only renders.
+router.get("/modes", (req, res) => {
+  const modes = listModesForRole(req.session.profile.role).map((m) => ({
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    icon: m.icon,
+    color: m.color,
+    source: m.source,
+  }));
+  res.json(modes);
+});
 
 // GET /api/chat/sessions — list sessions for a profile
 router.get("/sessions", (req, res) => {
@@ -224,12 +205,21 @@ router.post("/sessions", (req, res) => {
   const { category } = req.body;
   // Always use session profile ID — no impersonation possible
   const profileId = req.session.profileId;
-  log.debug(`[chat] New session — profile: ${profileId?.slice(0, 8)}... category: ${category || "general"}`);
+  log.debug(`[chat] New session — profile: ${profileId?.slice(0, 8)}... mode: ${category || "general"}`);
 
-  const cat = category || "general";
+  // Resolve the requested mode (falls back to 'general' for unknown/disabled ids)
+  const mode = getModeOrDefault(category);
+  if (!mode) {
+    return res.status(500).json({ error: "No chat modes configured" });
+  }
+
+  // Role gate: visibility rules are enforced here, not just in the picker UI
+  if (!roleCanUseMode(req.session.profile.role, mode)) {
+    return res.status(403).json({ error: `This profile can't use the ${mode.name} mode` });
+  }
 
   // Find the best available model (with fallback chain)
-  const model = findModelForCategory(cat);
+  const model = findModelForCategory(mode.model_category);
 
   if (!model) {
     return res.status(400).json({
@@ -243,9 +233,9 @@ router.post("/sessions", (req, res) => {
       `INSERT INTO sessions (id, profile_id, model_id, category, title)
        VALUES (?, ?, ?, ?, ?)`
     )
-    .run(id, profileId, model.id, cat, "New conversation");
+    .run(id, profileId, model.id, mode.id, "New conversation");
 
-  res.json({ id, modelId: model.id, category: cat });
+  res.json({ id, modelId: model.id, category: mode.id });
 });
 
 // POST /api/chat/message — send a message and stream response
@@ -271,13 +261,17 @@ router.post("/message", async (req, res) => {
     .prepare("SELECT * FROM profiles WHERE id = ?")
     .get(session.profile_id);
 
+  // Resolve the session's mode (falls back to 'general' for unknown/disabled ids,
+  // so sessions created before a mode was removed keep working)
+  const mode = getModeOrDefault(session.category);
+
   // If session has no model, try to find one now (self-healing)
   let model = null;
   if (session.model_id) {
     model = getDb().prepare("SELECT * FROM models WHERE id = ?").get(session.model_id);
   }
   if (!model) {
-    model = findModelForCategory(session.category || "general");
+    model = findModelForCategory(mode?.model_category || "general");
     // Update the session so future messages don't re-lookup
     if (model) {
       getDb()
@@ -292,8 +286,12 @@ router.post("/message", async (req, res) => {
     });
   }
 
-  // Get config (system prompt + temperature) for this category
-  const config = getSystemPrompt(model.id, session.category || "general");
+  if (!mode) {
+    return res.status(500).json({ error: "No chat modes configured" });
+  }
+
+  // Get config (system prompt + temperature) for this mode
+  const config = getModeConfig(model.id, mode);
 
   // Build message history
   const history = getDb()
@@ -485,8 +483,18 @@ router.post("/message", async (req, res) => {
 });
 
 // ── Document Upload ───────────────────────────────────────────
+// Multer middleware errors (rejected extension, oversize file) bypass the
+// route's try/catch and would otherwise surface as an HTML 500 with a stack
+// trace. Catch them here and answer with clean JSON.
+function uploadSingle(req, res, next) {
+  upload.single("file")(req, res, (err) => {
+    if (err) return res.status(400).json({ error: err.message });
+    next();
+  });
+}
+
 // POST /api/chat/upload — upload a file, extract text, chunk, store
-router.post("/upload", upload.single("file"), async (req, res) => {
+router.post("/upload", uploadSingle, async (req, res) => {
   try {
     const { sessionId } = req.body;
     // Always derive profileId from session token — no impersonation
@@ -518,6 +526,9 @@ router.post("/upload", upload.single("file"), async (req, res) => {
       textContent = parsed.text;
     } else if (ext === ".txt" || ext === ".md") {
       fileType = ext === ".md" ? "markdown" : "text";
+      textContent = fs.readFileSync(filePath, "utf-8");
+    } else if (SOURCE_EXTENSIONS.includes(ext)) {
+      fileType = "code";
       textContent = fs.readFileSync(filePath, "utf-8");
     } else if ([".jpg", ".jpeg", ".png"].includes(ext)) {
       fileType = "image";
@@ -580,6 +591,23 @@ router.post("/upload", upload.single("file"), async (req, res) => {
     }
     res.status(500).json({ error: err.message });
   }
+});
+
+// GET /api/chat/sessions/:sessionId/messages — message history for a session
+// (so reopening a conversation from the dashboard/sidebar shows its history)
+router.get("/sessions/:sessionId/messages", (req, res) => {
+  const sessionId = req.params.sessionId;
+  const sessRow = getDb().prepare("SELECT profile_id FROM sessions WHERE id = ?").get(sessionId);
+  if (!sessRow) return res.status(404).json({ error: "Session not found" });
+  if (!canAccessSession(req.session, sessRow.profile_id)) {
+    return res.status(403).json({ error: "Cannot view another profile's conversation" });
+  }
+  const messages = getDb()
+    .prepare(
+      "SELECT role, content, created_at as timestamp FROM messages WHERE session_id = ? ORDER BY created_at"
+    )
+    .all(sessionId);
+  res.json(messages);
 });
 
 // GET /api/chat/documents/:sessionId — list documents for a session

@@ -1,5 +1,12 @@
 import { useState, useEffect, useRef } from "react";
 import { ShieldIcon, AIShieldAvatar, avatarColor, formatTime, SendArrow, BRAND, API, authFetch } from "./shared";
+import { MessageContent } from "./MessageContent";
+
+// Keep in sync with the server-side allowlist in server/routes/chat.js
+const ALLOWED_EXTENSIONS = [
+  ".pdf", ".txt", ".md", ".jpg", ".jpeg", ".png",
+  ".py", ".js", ".ts", ".tsx", ".rs", ".go",
+];
 
 export function ChatArea({ profile, session, messages, streaming, streamText, onSend, aiName }) {
   const [input, setInput] = useState("");
@@ -29,10 +36,9 @@ export function ChatArea({ profile, session, messages, streaming, streamText, on
   // ── File upload handler ──
   const handleFileUpload = async (file) => {
     if (!file || !session) return;
-    const allowed = [".pdf", ".txt", ".md", ".jpg", ".jpeg", ".png"];
     const ext = "." + file.name.split(".").pop().toLowerCase();
-    if (!allowed.includes(ext)) {
-      alert(`Unsupported file type: ${ext}\nAccepted: ${allowed.join(", ")}`);
+    if (!ALLOWED_EXTENSIONS.includes(ext)) {
+      alert(`Unsupported file type: ${ext}\nAccepted: ${ALLOWED_EXTENSIONS.join(", ")}`);
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
@@ -92,7 +98,7 @@ export function ChatArea({ profile, session, messages, streaming, streamText, on
   };
 
   const fileTypeLabel = (type) => {
-    const labels = { pdf: "PDF", text: "TXT", markdown: "MD", image: "IMG" };
+    const labels = { pdf: "PDF", text: "TXT", markdown: "MD", image: "IMG", code: "CODE" };
     return labels[type] || "FILE";
   };
 
@@ -162,7 +168,7 @@ export function ChatArea({ profile, session, messages, streaming, streamText, on
                     <span style={{ fontSize: 12, color: BRAND.slate }}>{msg.attachment.filename}</span>
                   </div>
                 )}
-                {msg.content}
+                <MessageContent text={msg.content} />
               </div>
               {msg.timestamp && (
                 <div className="kw-msg-time">{formatTime(msg.timestamp)}</div>
@@ -178,7 +184,7 @@ export function ChatArea({ profile, session, messages, streaming, streamText, on
             </div>
             <div>
               <div className="kw-msg-bubble">
-                {streamText}
+                <MessageContent text={streamText} />
                 <span className="kw-cursor" />
               </div>
             </div>
@@ -214,7 +220,7 @@ export function ChatArea({ profile, session, messages, streaming, streamText, on
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.txt,.md,.jpg,.jpeg,.png"
+            accept={ALLOWED_EXTENSIONS.join(",")}
             style={{ display: "none" }}
             onChange={(e) => {
               const file = e.target.files?.[0];

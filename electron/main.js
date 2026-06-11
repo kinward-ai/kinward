@@ -10,6 +10,13 @@ const SERVER_ENTRY = path.join(__dirname, "..", "server", "index.js");
 const DATA_DIR = path.join(app.getPath("userData"), "data");
 const PORT = 3210;
 
+// In a packaged app, __dirname lives inside app.asar — which is a FILE, not
+// a directory. macOS 15.5+ rejects spawning a child whose cwd isn't a real
+// directory (spawn ENOTDIR), so child processes must never use a cwd inside
+// the asar. The server doesn't depend on cwd (all paths are __dirname- or
+// env-based), so any real directory works.
+const SPAWN_CWD = app.isPackaged ? app.getPath("userData") : path.join(__dirname, "..");
+
 let mainWindow = null;
 let serverProcess = null;
 let isQuitting = false;
@@ -75,7 +82,7 @@ function validateNativeModules() {
     console.log("[electron] Attempting automatic rebuild...");
     try {
       execSync("node scripts/electron-rebuild.js", {
-        cwd: path.join(__dirname, ".."),
+        cwd: SPAWN_CWD,
         stdio: "inherit",
         timeout: 120000,
       });
@@ -211,7 +218,7 @@ function startServer() {
 
     serverProcess = fork(SERVER_ENTRY, [], {
       env,
-      cwd: path.join(__dirname, ".."),
+      cwd: SPAWN_CWD,
       stdio: ["pipe", "pipe", "pipe", "ipc"],
     });
 

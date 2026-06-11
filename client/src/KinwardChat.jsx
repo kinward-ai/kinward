@@ -430,6 +430,79 @@ const CSS = `
 }
 .kw-msg.user .kw-msg-time { text-align: right; }
 
+/* Code blocks (fenced code in messages) */
+.kw-code-block {
+  margin: 10px 0;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid ${BRAND.mist};
+  background: #1F2430;
+}
+.kw-code-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 12px;
+  background: #2A3040;
+  border-bottom: 1px solid #3A4050;
+}
+.kw-code-lang {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #9AA5BC;
+  text-transform: lowercase;
+}
+.kw-code-copy {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  color: #9AA5BC;
+  background: none;
+  border: 1px solid #3A4050;
+  border-radius: 6px;
+  padding: 2px 10px;
+  cursor: pointer;
+}
+.kw-code-copy:hover { color: white; border-color: #9AA5BC; }
+.kw-code-block pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+}
+.kw-code-block code {
+  font-family: 'DM Mono', 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+  color: #E6EAF2;
+  white-space: pre;
+  background: none;
+}
+.kw-inline-code {
+  font-family: 'DM Mono', 'SF Mono', Menlo, monospace;
+  font-size: 13px;
+  background: rgba(124,111,168,0.12);
+  border: 1px solid ${BRAND.mist};
+  border-radius: 5px;
+  padding: 1px 5px;
+}
+.kw-msg.user .kw-inline-code {
+  background: rgba(255,255,255,0.18);
+  border-color: rgba(255,255,255,0.3);
+  color: white;
+}
+
+/* highlight.js token colors (Kinward dark code theme) */
+.kw-code-block .hljs-keyword, .kw-code-block .hljs-built_in { color: #C792EA; }
+.kw-code-block .hljs-string, .kw-code-block .hljs-regexp { color: #C3E88D; }
+.kw-code-block .hljs-number, .kw-code-block .hljs-literal { color: #F78C6C; }
+.kw-code-block .hljs-comment, .kw-code-block .hljs-quote { color: #697098; font-style: italic; }
+.kw-code-block .hljs-function, .kw-code-block .hljs-title { color: #82AAFF; }
+.kw-code-block .hljs-params { color: #E6EAF2; }
+.kw-code-block .hljs-attr, .kw-code-block .hljs-attribute, .kw-code-block .hljs-property { color: #FFCB6B; }
+.kw-code-block .hljs-tag, .kw-code-block .hljs-name { color: #F07178; }
+.kw-code-block .hljs-type, .kw-code-block .hljs-class { color: #FFCB6B; }
+.kw-code-block .hljs-variable, .kw-code-block .hljs-template-variable { color: #E6EAF2; }
+.kw-code-block .hljs-meta, .kw-code-block .hljs-doctag { color: #89DDFF; }
+
 /* Streaming cursor */
 .kw-cursor {
   display: inline-block;
@@ -743,11 +816,17 @@ export default function KinwardChat({ user: propUser, navIntent, onOpenSettings,
       setMessages([]);
       return;
     }
-    // If sessions store messages inline, use those; otherwise fetch
     if (activeSession.messages) {
+      // Freshly created sessions carry their (empty) messages inline
       setMessages(activeSession.messages);
+      return;
     }
-    // Could also fetch: api(`/chat/sessions/${activeSession.id}/messages`)
+    // Existing session reopened — fetch its history
+    let alive = true;
+    api(`/chat/sessions/${activeSession.id}/messages`)
+      .then((history) => { if (alive) setMessages(history || []); })
+      .catch(() => { if (alive) setMessages([]); });
+    return () => { alive = false; };
   }, [activeSession]);
 
   // ── Create new chat session ──

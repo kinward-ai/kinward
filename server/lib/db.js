@@ -46,11 +46,13 @@ function initSchema() {
     );
 
     -- Installed models (what's been pulled via Ollama)
+    -- category references the model-catalog category (data-driven — no CHECK,
+    -- so new catalog categories like 'coding' don't require a migration)
     CREATE TABLE IF NOT EXISTS models (
       id TEXT PRIMARY KEY,
       ollama_name TEXT NOT NULL,
       display_name TEXT NOT NULL,
-      category TEXT NOT NULL CHECK (category IN ('general', 'kids', 'research', 'creative')),
+      category TEXT NOT NULL,
       size_bytes INTEGER,
       is_default INTEGER DEFAULT 0,
       config JSON DEFAULT '{}',
@@ -265,7 +267,36 @@ function initSchema() {
     CREATE INDEX IF NOT EXISTS idx_context_bundles_version ON context_bundles(version);
     CREATE INDEX IF NOT EXISTS idx_context_bundles_active ON context_bundles(active);
     CREATE INDEX IF NOT EXISTS idx_context_bundles_applied ON context_bundles(applied_at DESC);
+
+    -- ─── Chat modes ──────────────────────────────────────────────────────────
+    -- Conversation modes as data, not code (Modularity Principle).
+    -- Rows define everything a mode is: picker display, system-prompt
+    -- extension, sampling settings, preferred model-catalog category, and
+    -- role visibility. 'source' tags ownership: built-in rows are app-owned
+    -- and re-synced from server/lib/chat-modes.js on every boot; family and
+    -- bundle rows are never touched by sync.
+    CREATE TABLE IF NOT EXISTS chat_modes (
+      id TEXT PRIMARY KEY,                              -- slug: 'general', 'kids', 'coding', ...
+      name TEXT NOT NULL,
+      description TEXT,
+      icon TEXT,
+      color TEXT,
+      system_prompt TEXT NOT NULL,                      -- appended to the AI core identity prompt
+      temperature REAL NOT NULL DEFAULT 0.7,
+      max_tokens INTEGER NOT NULL DEFAULT 2048,
+      model_category TEXT NOT NULL DEFAULT 'general',   -- preferred model-catalog category
+      visible_roles JSON NOT NULL DEFAULT '["admin","co-admin","teen","child","guest"]',
+      source TEXT NOT NULL DEFAULT 'built-in' CHECK (source IN ('built-in', 'family', 'bundle')),
+      enabled INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now'))
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_chat_modes_enabled ON chat_modes(enabled, sort_order);
   `);
+
+  migrateModelsCategoryConstraint();
 
   console.log("[db] Schema initialized");
 
@@ -318,6 +349,70 @@ function initSchema() {
   if (stalePrompts.count > 0) {
     db.prepare("UPDATE model_configs SET system_prompt = NULL").run();
     console.log(`[db] Cleared ${stalePrompts.count} stale system prompts from model_configs (now dynamic)`);
+  }
+
+  // One-shot migration: delete install-time model_configs seed rows.
+  // Before chat_modes, installing a model seeded a temperature row
+  // (0.9 creative / 0.7 everything else) that silently shadowed the
+  // per-mode temperature. Mode rows are now the source of truth;
+  // model_configs is reserved for future explicit per-model overrides.
+  // Guarded by a flag so future genuine overrides are never wiped.
+  if (getConfig("migration_model_config_seeds_cleared") !== true) {
+    const seeded = db.prepare("SELECT COUNT(*) as count FROM model_configs").get();
+    if (seeded.count > 0) {
+      db.prepare("DELETE FROM model_configs").run();
+      console.log(`[db] Cleared ${seeded.count} install-time model_configs seed rows (modes now own temperature)`);
+    }
+    setConfig("migration_model_config_seeds_cleared", true);
+  }
+
+  // Seed + sync built-in chat modes (idempotent; family/bundle rows untouched)
+  const { syncBuiltInModes } = require("./chat-modes");
+  syncBuiltInModes();
+  console.log("[db] Built-in chat modes synced");
+}
+
+// Migration: drop the CHECK constraint on models.category.
+// The v0.1 schema hardcoded CHECK (category IN ('general','kids','research',
+// 'creative')), which blocks data-driven mode categories ('coding', ...).
+// SQLite can't alter a CHECK constraint, so this rebuilds the table once
+// (the standard 12-step procedure) on databases created before chat_modes.
+function migrateModelsCategoryConstraint() {
+  const db = getDb();
+
+  const tableSql = db
+    .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'models'")
+    .get();
+  if (!tableSql || !/CHECK\s*\(\s*category/i.test(tableSql.sql)) return; // already migrated
+
+  db.pragma("foreign_keys = OFF");
+  const rebuild = db.transaction(() => {
+    db.exec(`
+      CREATE TABLE models_new (
+        id TEXT PRIMARY KEY,
+        ollama_name TEXT NOT NULL,
+        display_name TEXT NOT NULL,
+        category TEXT NOT NULL,
+        size_bytes INTEGER,
+        is_default INTEGER DEFAULT 0,
+        config JSON DEFAULT '{}',
+        installed_at TEXT DEFAULT (datetime('now'))
+      );
+      INSERT INTO models_new SELECT * FROM models;
+      DROP TABLE models;
+      ALTER TABLE models_new RENAME TO models;
+    `);
+    const violations = db.pragma("foreign_key_check");
+    if (violations.length > 0) {
+      throw new Error(`models migration produced FK violations: ${JSON.stringify(violations)}`);
+    }
+  });
+
+  try {
+    rebuild();
+    console.log("[db] Migrated models table: category CHECK constraint removed");
+  } finally {
+    db.pragma("foreign_keys = ON");
   }
 }
 

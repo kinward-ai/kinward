@@ -1,6 +1,6 @@
 {
   "name": "kinward",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Your Family's AI Guardian — local-first AI platform",
   "private": true,
   "main": "electron/main.js",
@@ -23,6 +23,7 @@
     "electron:rebuild:system": "node scripts/electron-rebuild.js --system",
     "electron:dev": "npm run client:build && npm run electron:rebuild && electron .",
     "electron:build": "npm run client:build && npm run electron:rebuild && electron-builder",
+    "electron:build:universal": "npm run client:build && npm run electron:rebuild && electron-builder --mac --universal",
     "electron:dev:hot": "ELECTRON_DEV=1 npm run electron:rebuild && electron .",
     "keypair:gen": "node scripts/keypair-gen.js",
     "bundle:sign": "node scripts/sign-bundle.js",

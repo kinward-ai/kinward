@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { BRAND as B } from "./components/shared";
 import FamilyBoard from "./components/FamilyBoard";
 import AdminReview from "./components/AdminReview";
-import { getDashboard } from "./api";
+import { getDashboard, getChatModes } from "./api";
 
 /**
  * KinwardDashboard — the family home screen shown after login.
@@ -16,18 +16,24 @@ import { getDashboard } from "./api";
  *   - (Admin only) Family activity summary
  */
 
-const MODES = [
+// Fallback tiles if the modes endpoint is unreachable — the live list comes
+// from GET /api/chat/modes, already filtered for this profile's role
+const FALLBACK_MODES = [
   { id: "general",  label: "General",  icon: "💬" },
   { id: "kids",     label: "Kids",     icon: "🌟" },
   { id: "research", label: "Research", icon: "🔍" },
   { id: "creative", label: "Creative", icon: "✨" },
 ];
 
+// Fallback dot colors for recent-conversation rows; fetched modes carry
+// their own color from the chat_modes table
 const MODE_COLORS = {
   general: "#5A8BAD",
   kids: "#6BAF7D",
   research: B.orange,
   creative: "#C4853A",
+  coding: "#7C6FA8",
+  tutor: "#4A8C5C",
 };
 
 function timeAgo(iso) {
@@ -54,6 +60,8 @@ export default function KinwardDashboard({
   const [view, setView] = useState("dashboard"); // "dashboard" | "review"
   const [loading, setLoading] = useState(true);
 
+  const [modes, setModes] = useState(FALLBACK_MODES);
+
   const loadDashboard = async () => {
     try {
       const d = await getDashboard(user.id);
@@ -67,7 +75,13 @@ export default function KinwardDashboard({
 
   useEffect(() => {
     loadDashboard();
+    getChatModes()
+      .then(setModes)
+      .catch(() => {}); // keep fallback tiles
   }, [user.id]);
+
+  const modeColor = (categoryId) =>
+    modes.find((m) => m.id === categoryId)?.color || MODE_COLORS[categoryId] || B.slate;
 
   const isAdmin = user.role === "admin" || user.role === "co-admin";
 
@@ -163,14 +177,14 @@ export default function KinwardDashboard({
             <div style={s.sectionTitle}>Start a conversation</div>
           </div>
           <div style={s.modeGrid}>
-            {MODES.map((mode) => (
+            {modes.map((mode) => (
               <button
                 key={mode.id}
                 style={s.modeTile}
                 onClick={() => onStartChat(mode.id)}
               >
                 <div style={s.modeEmoji}>{mode.icon}</div>
-                <div style={s.modeLabel}>{mode.label}</div>
+                <div style={s.modeLabel}>{mode.name || mode.label}</div>
               </button>
             ))}
           </div>
@@ -192,7 +206,7 @@ export default function KinwardDashboard({
                   <div
                     style={{
                       ...s.convoDot,
-                      background: MODE_COLORS[session.category] || B.slate,
+                      background: modeColor(session.category),
                     }}
                   />
                   <div style={s.convoTitle}>{session.title}</div>
