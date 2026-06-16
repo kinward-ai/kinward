@@ -48,13 +48,13 @@ jobs:
 
       # GitHub's windows-latest runner ships a Visual Studio version that the
       # node-gyp bundled with npm (9.x) can't detect ("unknown version ... VS 18").
-      # Install a current node-gyp and point the rebuild script at it.
-      - name: Provide a node-gyp that understands the runner's Visual Studio
+      # Upgrade the *local* node-gyp: the rebuild runs under `npm run`, which puts
+      # node_modules/.bin first on PATH, so only the project-local copy is used.
+      - name: Update node-gyp to detect the runner's Visual Studio
         shell: bash
         run: |
-          npm install --global node-gyp@latest
-          node-gyp --version
-          echo "KINWARD_NODE_GYP=node-gyp" >> "$GITHUB_ENV"
+          npm install node-gyp@latest --no-save
+          node -e "console.log('node-gyp', require('node-gyp/package.json').version)"
 
       - name: Rebuild native modules for Electron
         run: npm run electron:rebuild
