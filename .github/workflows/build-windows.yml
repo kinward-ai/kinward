@@ -1,0 +1,87 @@
+name: Build Windows Installer
+
+# Kinward depends on better-sqlite3, a node-gyp native module, so the Windows
+# NSIS installer cannot be cross-compiled from macOS — it must build on a real
+# Windows toolchain. This runs that build on a windows-latest runner.
+#
+# Triggers:
+#   - Manual (workflow_dispatch): optionally attach the .exe to an existing
+#     GitHub release by passing its tag (e.g. v0.2.1).
+#   - Tag push (v*): builds and attaches to that tag's release automatically.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to attach the installer to (blank = artifact only)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build client
+        run: npm run client:build
+
+      - name: Rebuild native modules for Electron
+        run: npm run electron:rebuild
+
+      - name: Build Windows installer (NSIS)
+        run: npx electron-builder --win --publish never
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kinward-windows-installer
+          path: |
+            dist-electron/*.exe
+            dist-electron/*.exe.blockmap
+            dist-electron/latest.yml
+          if-no-files-found: error
+
+      # Attach to a release when this run was triggered by a tag push, or when a
+      # release_tag input was supplied for a manual run.
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            echo "value=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attach installer to release
+        if: steps.tag.outputs.value != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.tag.outputs.value }}" \
+            dist-electron/*.exe dist-electron/*.exe.blockmap dist-electron/latest.yml \
+            --clobber
