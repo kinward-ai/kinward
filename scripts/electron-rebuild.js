@@ -102,8 +102,14 @@ function rebuildModule(moduleName, { runtime, target, distUrl }) {
     args.push(`--runtime=${runtime}`, `--target=${target}`, `--dist-url=${distUrl}`);
   }
 
+  // The node-gyp invocation is overridable so CI can supply a newer node-gyp
+  // than the one bundled with npm. (GitHub's windows-latest runners ship a
+  // Visual Studio version that older node-gyp can't detect — see
+  // .github/workflows/build-windows.yml.) Defaults to the local `npx node-gyp`.
+  const nodeGyp = process.env.KINWARD_NODE_GYP || "npx node-gyp";
+
   try {
-    execSync(`npx node-gyp ${args.join(" ")}`, {
+    execSync(`${nodeGyp} ${args.join(" ")}`, {
       cwd: modulePath,
       stdio: "inherit",
       timeout: 120000,
