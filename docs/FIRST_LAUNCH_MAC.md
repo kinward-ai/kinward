@@ -1,34 +1,38 @@
-# First Launch on Mac — One Extra Click
+# First Launch on Mac — Getting Past the Warning
 
-> Kinward isn't yet code-signed by Apple (we're working on it). The first time you open it, macOS will show a warning. Here's the one extra click you need.
+> Kinward isn't yet code-signed by Apple (we're working on it). The first time you open it, macOS will block it with a warning. Here's how to open it anyway — takes about 30 seconds.
 
 ---
 
+## ⚠️ First, the one mistake to avoid
+
+The warning's highlighted blue button is **"Move to Trash"** — and on newer macOS that's the *default*, so tapping Return deletes Kinward. **Don't click it.** Click **"Done"** (or "Cancel" on older macOS) and follow the steps below.
+
 ## What you'll see the first time
 
-After you drag Kinward to your Applications folder and double-click it, macOS pops up a window that says:
+After you drag Kinward to your Applications folder and double-click it, macOS pops up a warning. Depending on your macOS version it says either:
 
-> **"Kinward.app cannot be opened because the developer cannot be verified."**
->
-> *macOS cannot verify that this app is free from malware.*
+> **""Kinward" Not Opened** — Apple could not verify "Kinward" is free of malware that may harm your Mac or compromise your privacy."  *(macOS 15 Sequoia and later)*
+
+or
+
+> **"Kinward.app cannot be opened because the developer cannot be verified."**  *(macOS 14 and earlier)*
 
 That's Apple's Gatekeeper being cautious about any app not signed by a paid Apple Developer account. It's not specific to Kinward — every indie Mac app starts here.
 
-## The fix (10 seconds)
+## The fix (works on every macOS version)
 
-1. Click **Cancel** on that warning (don't click Move to Trash!)
-2. Open **System Settings → Privacy & Security**
-3. Scroll down to the **Security** section
-4. You'll see: *"Kinward was blocked from use because it is not from an identified developer."*
-5. Click **Open Anyway**
-6. Confirm with your Mac password or Touch ID
-7. Kinward opens. You'll never see this warning again.
+1. On the warning, click **Done** (older macOS: **Cancel**). **Not** "Move to Trash."
+2. Open the **Apple menu () → System Settings → Privacy & Security**.
+3. Scroll down to the **Security** section.
+4. You'll see a line like: *""Kinward" was blocked to protect your Mac"* (or *"…blocked from use because it is not from an identified developer"*), with an **Open Anyway** button next to it. Click it.
+5. Confirm with Touch ID or your Mac password.
+6. One more dialog appears — click **Open Anyway** (or **Open**) to confirm.
+7. Kinward launches. You'll never see this warning again.
 
-**Alternative (older macOS, or if you can't find the Settings panel):**
-1. Find Kinward.app in your Applications folder
-2. **Right-click** (or Control-click) → **Open**
-3. Click **Open** on the confirmation dialog
-4. Done.
+> The **Open Anyway** button only appears *after* you've tried to open Kinward at least once (step 1). If you don't see it, double-click Kinward once more, click Done, and go back to Privacy & Security.
+
+**Older macOS only (14 Sonoma and earlier):** you can also right-click (or Control-click) Kinward in Applications → **Open** → **Open**. ⚠️ This shortcut was **removed in macOS 15 Sequoia** — on Sequoia you must use the System Settings steps above.
 
 ## Why we haven't signed yet
 
