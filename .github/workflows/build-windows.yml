@@ -46,14 +46,15 @@ jobs:
       - name: Build client
         run: npm run client:build
 
-      # GitHub's windows-latest runner ships a Visual Studio version that the
-      # node-gyp bundled with npm (9.x) can't detect ("unknown version ... VS 18").
-      # Upgrade the *local* node-gyp: the rebuild runs under `npm run`, which puts
-      # node_modules/.bin first on PATH, so only the project-local copy is used.
-      - name: Update node-gyp to detect the runner's Visual Studio
+      # The npm-bundled node-gyp (9.x) can't detect the runner's Visual Studio,
+      # but node-gyp 12+/13 crashes on Node 20 (its undici calls
+      # webidl.util.markAsUncloneable, which needs Node 22+). Pin the *local*
+      # node-gyp to the 11 line — detects modern VS AND runs on Node 20. Local,
+      # because the rebuild runs under `npm run` with node_modules/.bin first on PATH.
+      - name: Pin a node-gyp that detects modern Visual Studio and runs on Node 20
         shell: bash
         run: |
-          npm install node-gyp@latest --no-save
+          npm install node-gyp@^11 --no-save
           node -e "console.log('node-gyp', require('node-gyp/package.json').version)"
 
       - name: Rebuild native modules for Electron
