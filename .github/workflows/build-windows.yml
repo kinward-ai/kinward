@@ -25,7 +25,10 @@ permissions:
 
 jobs:
   build-windows:
-    runs-on: windows-latest
+    # Pinned to windows-2022 (stable VS 2022) on purpose: windows-latest rolled
+    # forward to VS 18, which the node-gyp compatible with Node 20 can't detect.
+    # VS 2022 is the well-trodden path for building native modules.
+    runs-on: windows-2022
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -46,17 +49,10 @@ jobs:
       - name: Build client
         run: npm run client:build
 
-      # node-gyp's own VS auto-detection is fragile on the current runner: its
-      # PowerShell probe overflows stdio (ERR_CHILD_PROCESS_STDIO_MAXBUFFER) and
-      # can't identify "VS 18". Setting up the MSVC dev environment exports
-      # VCINSTALLDIR etc., so node-gyp takes the fast path and skips the probe.
-      - name: Set up MSVC developer environment
-        uses: ilammy/msvc-dev-cmd@v1
-
-      # node-gyp 12+/13 crashes on Node 20 (its undici calls
-      # webidl.util.markAsUncloneable, needs Node 22+), and the bundled 9.x is too
-      # old. Pin the *local* node-gyp to 11 — the rebuild runs under `npm run`
-      # with node_modules/.bin first on PATH, so only the project-local copy is used.
+      # Pin the *local* node-gyp to 11: it detects VS 2022 cleanly, and unlike
+      # node-gyp 12+/13 it runs on Node 20 (12+ pulls an undici that needs Node
+      # 22+). The rebuild runs under `npm run` with node_modules/.bin first on
+      # PATH, so only this project-local copy is used.
       - name: Pin a node-gyp that runs on Node 20
         shell: bash
         run: |
