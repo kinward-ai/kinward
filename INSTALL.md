@@ -155,7 +155,7 @@ Kinward detects your hardware and recommends the best model for your machine.
   ┌─────────────────────────────────────────────────────────────────┐
   │  ✨ Recommended                                                  │
   │                                                                 │
-  │  Gemma 4 9B                        5.5 GB    [Install]          │
+  │  Gemma 4 12B                        7.6 GB    [Install]          │
   │  Google DeepMind's latest — fast everyday AI                    │
   │                                                                 │
   │  Mistral Small 24B                 14 GB     [Install]          │
@@ -168,7 +168,7 @@ Kinward detects your hardware and recommends the best model for your machine.
 Click **Install** next to your chosen model. A progress bar shows the download:
 
 ```
-  Downloading Gemma 4 9B...
+  Downloading Gemma 4 12B...
 
   ████████████████░░░░░░░░  68%   12.4 MB/s   45s left
 ```
@@ -178,7 +178,7 @@ Click **Install** next to your chosen model. A progress bar shows the download:
 ```
   ✓  AI identity: Lumina
   ✓  4 family profiles created
-  ✓  Gemma 4 9B installed
+  ✓  Gemma 4 12B installed
 
                     [ Meet Lumina → ]
 ```
@@ -232,9 +232,9 @@ Go to **Settings → 📦 AI Models** to browse, install, and remove models at a
   Recommended ─────────────────────────────────────────────────
 
   ┌──────────────────────┐  ┌──────────────────────┐
-  │ High-end  NEW  5.5GB │  │ High-end  NEW  17 GB │
+  │ High-end  NEW  7.6GB │  │ High-end  NEW  18 GB │
   │                      │  │                      │
-  │  Gemma 4 9B          │  │  Gemma 4 27B         │
+  │  Gemma 4 12B          │  │  Gemma 4 26B         │
   │  Google's latest...  │  │  State-of-the-art... │
   │                      │  │                      │
   │  general  google     │  │  reasoning  google   │
@@ -269,7 +269,7 @@ Only for the initial setup (installing Ollama, cloning/downloading Kinward, and 
 **Q: How much disk space do I need?**
 The Kinward app itself is small (~50 MB). The space requirement is for AI models:
 - A small model like Phi-4 Mini = ~2.5 GB
-- A mid-range model like Gemma 4 9B = ~5.5 GB
+- A mid-range model like Gemma 4 12B = ~7.6 GB
 - A large model like Mistral Small 24B = ~14 GB
 
 You only need one model to start. You can add more later.
@@ -290,8 +290,8 @@ Make sure you have Node.js 20 or 22 LTS installed. Check with `node --version`. 
 **Q: Which model should I start with?**
 The wizard recommends one based on your hardware — that's a safe starting point. As a general rule:
 - **8–12 GB RAM:** Start with Llama 3.1 8B or Phi-4 Mini
-- **16 GB RAM:** Try Gemma 4 9B — it's fast and excellent quality
-- **24 GB+ RAM:** Gemma 4 27B or Mistral Small 24B give the best results
+- **16 GB RAM:** Try Gemma 4 12B — it's fast and excellent quality
+- **24 GB+ RAM:** Gemma 4 26B or Mistral Small 24B give the best results
 
 **Q: Can I have multiple models installed?**
 Yes. You can install as many models as your disk space allows. Switch between them in Settings → AI Models.

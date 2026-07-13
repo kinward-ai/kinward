@@ -33,7 +33,7 @@
 - Developer-maintained curated catalog of 15+ vetted open-weight models
 - In-app model browser in Settings with category tabs, hardware suitability, NEW badges
 - One-click install with live WebSocket progress (speed + ETA)
-- Gemma 4 9B/27B, Mistral Small 24B, DeepSeek R1, Phi-4 Mini added
+- Gemma 4 12B/26B, Mistral Small 24B, DeepSeek R1, Phi-4 Mini added
 - Tier-aware recommendations: excellent/good/basic hardware detection
 
 ---
@@ -198,13 +198,11 @@ Implementation notes:
 
 ### Next sprint
 
-1. **v0.2.1 hotfix — URGENT** — the public v0.2.0 DMG fails to launch on
-   current macOS ("spawn ENOTDIR": server fork used a cwd inside app.asar;
-   newer macOS rejects non-directory cwd). Fix is on main (electron/main.js,
-   2026-06-09). Ship a rebuilt installer ASAP, signed or not, and note the
-   known issue on the kinward.ai download page.
-2. **Apple Developer ID + code signing** — purchase + setup, fold into
-   v0.2.1 if timing allows. Public commitment from kinward.ai download page.
+1. ~~**v0.2.1 hotfix**~~ ✅ **Shipped 2026-06-11** — launch fix + the full
+   chat_modes/Coding/Tutor batch, universal DMG on GitHub Releases,
+   kinward.ai updated. Release notes recommit to signing in the next release.
+2. **Apple Developer ID + code signing** — publicly recommitted in the
+   v0.2.1 release notes for the NEXT release. Finish enrollment, sign + notarize.
 3. **Windows installer** — add `electron/icons/icon.ico`, test electron-builder
    NSIS output, attach to v0.2.1 release.
 4. **2.7 Privacy Modes** — open / gated / fully private. Public commitment

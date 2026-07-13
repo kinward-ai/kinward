@@ -12,7 +12,7 @@ Kinward turns a home computer into a private AI assistant that knows your family
 
 - **Electron desktop app** — launches from your dock or system tray. No terminal, no setup commands.
 - **In-app model manager** — browse, install, and remove AI models without ever touching a command line
-- **Gemma 4 support** — Google DeepMind's latest (9B and 27B) are in the catalog, ready to install
+- **Gemma 4 support** — Google DeepMind's latest (12B and 26B) are in the catalog, ready to install
 - **Family preset templates** — one-click household setup (Just Me, Couple, Family of 4, and more)
 - **Mistral Small 24B** — recommended for machines with 24GB+ RAM
 
@@ -71,8 +71,8 @@ Kinward includes a built-in model browser (**Settings → 📦 AI Models**). Bro
 
 | Model | Size | Best For | Min RAM |
 |-------|------|----------|---------|
-| **Gemma 4 9B** ✨ NEW | 5.5 GB | Everyday family use | 16 GB |
-| **Gemma 4 27B** ✨ NEW | 17 GB | Deep reasoning, best quality | 24 GB |
+| **Gemma 4 12B** ✨ NEW | 7.6 GB | Everyday family use | 16 GB |
+| **Gemma 4 26B** ✨ NEW | 18 GB | Deep reasoning, best quality | 24 GB |
 | **Mistral Small 24B** | 14 GB | Powerful all-rounder | 24 GB |
 | **Llama 3.1 8B** | 4.7 GB | Fast, works on any machine | 8 GB |
 | **DeepSeek R1 8B** | 4.9 GB | Math, logic, step-by-step problems | 8 GB |
@@ -94,8 +94,8 @@ Kinward runs on any machine that can run Ollama.
 | Tier | RAM | What runs well |
 |------|-----|----------------|
 | **Basic** | 8 GB | Llama 3.1 8B, Phi-4 Mini, DeepSeek R1 8B |
-| **Good** | 16 GB | + Gemma 4 9B, Mistral Nemo 12B, Qwen 2.5 14B |
-| **Excellent** | 24 GB+ | + Gemma 4 27B, Mistral Small 24B, Command R 35B |
+| **Good** | 16 GB | + Gemma 4 12B, Mistral Nemo 12B, Qwen 2.5 14B |
+| **Excellent** | 24 GB+ | + Gemma 4 26B, Mistral Small 24B, Command R 35B |
 
 > **Apple Silicon:** Unified memory means GPU and CPU share the same pool. A Mac Mini with 24GB handles 14B models with ease. Kinward auto-detects your tier and recommends accordingly.
 

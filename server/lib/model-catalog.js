@@ -25,11 +25,11 @@ const CATALOG = [
   // ─── General Purpose ───────────────────────────────────────────────────────
 
   {
-    ollama: "gemma4:9b",
-    display: "Gemma 4 9B",
+    ollama: "gemma4:12b",
+    display: "Gemma 4 12B",
     category: "general",
-    sizeGb: 5.5,
-    sizeDisplay: "5.5 GB",
+    sizeGb: 7.6,
+    sizeDisplay: "7.6 GB",
     minTier: "good",
     tags: ["general", "fast", "google"],
     description:
@@ -39,11 +39,11 @@ const CATALOG = [
     isNew: true,
   },
   {
-    ollama: "gemma4:27b",
-    display: "Gemma 4 27B",
+    ollama: "gemma4:26b",
+    display: "Gemma 4 26B",
     category: "general",
-    sizeGb: 17,
-    sizeDisplay: "17 GB",
+    sizeGb: 18,
+    sizeDisplay: "18 GB",
     minTier: "excellent",
     tags: ["general", "reasoning", "google"],
     description:
@@ -108,7 +108,7 @@ const CATALOG = [
   // ─── Kids ──────────────────────────────────────────────────────────────────
 
   {
-    ollama: "phi4:mini",
+    ollama: "phi4-mini",
     display: "Phi-4 Mini",
     category: "kids",
     sizeGb: 2.5,

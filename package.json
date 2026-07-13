@@ -18,6 +18,7 @@
     "reset:hard": "node scripts/reset.js --wipe-models",
     "test:timed": "node scripts/timed-run.js",
     "test": "node --test 'server/test/*.test.js'",
+    "verify:catalog": "node scripts/verify-catalog.js",
     "client:build": "cd client && npm run build",
     "electron:rebuild": "node scripts/electron-rebuild.js",
     "electron:rebuild:system": "node scripts/electron-rebuild.js --system",
