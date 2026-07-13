@@ -46,12 +46,18 @@ jobs:
       - name: Build client
         run: npm run client:build
 
-      # The npm-bundled node-gyp (9.x) can't detect the runner's Visual Studio,
-      # but node-gyp 12+/13 crashes on Node 20 (its undici calls
-      # webidl.util.markAsUncloneable, which needs Node 22+). Pin the *local*
-      # node-gyp to the 11 line — detects modern VS AND runs on Node 20. Local,
-      # because the rebuild runs under `npm run` with node_modules/.bin first on PATH.
-      - name: Pin a node-gyp that detects modern Visual Studio and runs on Node 20
+      # node-gyp's own VS auto-detection is fragile on the current runner: its
+      # PowerShell probe overflows stdio (ERR_CHILD_PROCESS_STDIO_MAXBUFFER) and
+      # can't identify "VS 18". Setting up the MSVC dev environment exports
+      # VCINSTALLDIR etc., so node-gyp takes the fast path and skips the probe.
+      - name: Set up MSVC developer environment
+        uses: ilammy/msvc-dev-cmd@v1
+
+      # node-gyp 12+/13 crashes on Node 20 (its undici calls
+      # webidl.util.markAsUncloneable, needs Node 22+), and the bundled 9.x is too
+      # old. Pin the *local* node-gyp to 11 — the rebuild runs under `npm run`
+      # with node_modules/.bin first on PATH, so only the project-local copy is used.
+      - name: Pin a node-gyp that runs on Node 20
         shell: bash
         run: |
           npm install node-gyp@^11 --no-save
