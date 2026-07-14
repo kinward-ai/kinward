@@ -1,0 +1,88 @@
+name: Build macOS Installer
+
+# Builds the universal (Apple Silicon + Intel) DMG in CI so a release is fully
+# push-button alongside the Windows build. Pinned to a specific macOS image
+# (not macos-latest) to avoid the toolchain drift that broke the Windows build.
+#
+# Triggers:
+#   - Manual (workflow_dispatch): optionally attach to an existing release by tag.
+#   - Tag push (v*): builds and attaches to that tag's release.
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Existing release tag to attach the installer to (blank = artifact only)"
+        required: false
+        default: ""
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-mac:
+    runs-on: macos-14
+    env:
+      # Unsigned until Apple Developer ID signing is set up (see docs/SIGNING.md).
+      # Prevents electron-builder from grabbing a random keychain identity.
+      CSC_IDENTITY_AUTO_DISCOVERY: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install client dependencies
+        run: npm ci
+        working-directory: client
+
+      - name: Build client
+        run: npm run client:build
+
+      - name: Rebuild native modules for Electron
+        run: npm run electron:rebuild
+
+      - name: Build macOS installer (universal DMG)
+        run: npx electron-builder --mac --universal --publish never
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kinward-macos-installer
+          path: |
+            dist-electron/*.dmg
+            dist-electron/*.dmg.blockmap
+            dist-electron/latest-mac.yml
+          if-no-files-found: error
+
+      - name: Resolve release tag
+        id: tag
+        shell: bash
+        run: |
+          if [ -n "${{ github.event.inputs.release_tag }}" ]; then
+            echo "value=${{ github.event.inputs.release_tag }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.ref_type }}" = "tag" ]; then
+            echo "value=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Attach installer to release
+        if: steps.tag.outputs.value != ''
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ steps.tag.outputs.value }}" \
+            dist-electron/*.dmg dist-electron/*.dmg.blockmap dist-electron/latest-mac.yml \
+            --clobber
