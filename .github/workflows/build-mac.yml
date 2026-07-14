@@ -49,6 +49,15 @@ jobs:
       - name: Build client
         run: npm run client:build
 
+      # The macos-14 runner ships Python 3.14, which removed distutils; the
+      # npm-bundled node-gyp (9.x) uses an old gyp that imports it and fails
+      # (ModuleNotFoundError: distutils). node-gyp 11's gyp is distutils-free and
+      # runs on Node 20. Local, since the rebuild runs under `npm run`.
+      - name: Pin a node-gyp compatible with the runner's Python
+        run: |
+          npm install node-gyp@^11 --no-save
+          node -e "console.log('node-gyp', require('node-gyp/package.json').version)"
+
       - name: Rebuild native modules for Electron
         run: npm run electron:rebuild
 
